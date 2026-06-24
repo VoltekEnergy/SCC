@@ -47,9 +47,9 @@
   body{
     font-family:var(--font); background:var(--bg); color:var(--text);
     min-height:100vh; -webkit-font-smoothing:antialiased;
-    overscroll-behavior-y:none; touch-action:manipulation;
+    overscroll-behavior-y:none;
   }
-  button{font-family:inherit;cursor:pointer;user-select:none;-webkit-user-select:none}
+  button{font-family:inherit;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation}
   button:active{transform:scale(.97)}
   input,select{font-family:inherit}
   .hidden{display:none !important}
@@ -93,7 +93,12 @@
   .calc-box{margin-top:8px}
   .calc-box select,.calc-box input{
     width:100%;padding:12px 13px;border-radius:10px;border:1px solid var(--field-line);
-    background:var(--field);color:var(--text);font-size:15px;outline:none;transition:border-color .15s;
+    background:var(--field);color:var(--text);font-size:16px;outline:none;transition:border-color .15s;
+    -webkit-appearance:none;appearance:none;touch-action:auto;
+  }
+  .calc-box select{
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239aa7b2' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 13px center;padding-right:36px;
   }
   .calc-box select:focus,.calc-box input:focus{border-color:var(--accent)}
   .calc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
@@ -155,7 +160,7 @@
   /* PDF OVERLAY */
   .pdf-overlay{
     position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.55);
-    display:flex;align-items:flex-end;justify-content:center;opacity:0;transition:opacity .2s;
+    display:none;align-items:flex-end;justify-content:center;opacity:0;transition:opacity .2s;
   }
   .pdf-overlay.show{opacity:1}
   @media(min-width:760px){.pdf-overlay{align-items:center}}
