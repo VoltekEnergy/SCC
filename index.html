@@ -1044,7 +1044,10 @@ function renderCalculator(mount){
 
     <!-- STEP 5: System size -->
     <div class="input-card">
-      <div class="input-card-title">☀️ Upgrade System Size <span style="font-weight:400;color:var(--muted)">(optional)</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div class="input-card-title" style="margin-bottom:0">☀️ Upgrade System Size <span style="font-weight:400;color:var(--muted)">(optional)</span></div>
+        <button type="button" class="cb-pkg-reset btn ghost" style="padding:5px 10px;font-size:11px;display:none">↩ Reset to standard</button>
+      </div>
       <div class="calc-hint" style="margin-bottom:10px;margin-top:-4px">For customers requesting a larger system. The standard size is already selected from the TNB bill.</div>
       <div class="pkg-grid cb-pkggrid"></div>
       <div class="pkg-phase-note cb-phase-note"></div>
@@ -1097,6 +1100,7 @@ function renderCalculator(mount){
   const ratioSel  = box.querySelector(".cb-ratiosel");
   const pkgGrid   = box.querySelector(".cb-pkggrid");
   const phNote    = box.querySelector(".cb-phase-note");
+  const pkgReset  = box.querySelector(".cb-pkg-reset");
   const batGrid   = box.querySelector(".cb-batgrid");
   const batHint   = box.querySelector(".cb-bat-hint");
   const result    = box.querySelector(".cb-result");
@@ -1127,6 +1131,7 @@ function renderCalculator(mount){
         selKwp = pkg.kwp;
         [...pkgGrid.querySelectorAll(".pkg-btn")].forEach(b=>b.classList.remove("active"));
         btn.classList.add("active");
+        pkgReset.style.display = "inline-flex";
         buildBatGrid();
       };
       pkgGrid.appendChild(btn);
@@ -1136,6 +1141,7 @@ function renderCalculator(mount){
     phNote.textContent = hasDashed
       ? "Dashed = three phase only. Select three phase to enable those sizes."
       : "";
+    pkgReset.style.display = selKwp !== null ? "inline-flex" : "none";
   }
 
   function buildBatGrid() {
@@ -1201,6 +1207,12 @@ function renderCalculator(mount){
     ev = b.dataset.ev;
     evBtns.forEach(x => x.classList.toggle("active", x === b));
   });
+
+  // ── reset button ──────────────────────────────────────────────────────────
+  pkgReset.onclick = () => {
+    selKwp = null;
+    refreshGrids();
+  };
 
   // ── initial render ────────────────────────────────────────────────────────
   refreshGrids();
