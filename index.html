@@ -179,6 +179,68 @@
   .pdf-hint{font-size:11.5px;color:var(--muted);padding:8px 16px 16px;line-height:1.5}
 
   @media(prefers-reduced-motion:reduce){*{transition:none !important}}
+
+  /* BRAND SELECTOR */
+  .brand-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+  .brand-btn{
+    border:2px solid var(--line);background:var(--panel-2);border-radius:12px;
+    padding:14px 10px 12px;display:flex;flex-direction:column;align-items:center;gap:6px;
+    color:var(--muted);font-weight:700;font-size:13px;letter-spacing:.3px;transition:border-color .15s,background .15s;
+  }
+  .brand-btn .bb-logo{font-size:22px;font-weight:900;letter-spacing:-1px}
+  .brand-btn .bb-sub{font-size:10px;font-weight:600;letter-spacing:.6px;color:var(--muted)}
+  .brand-btn.active{border-color:var(--accent);background:rgba(239,108,46,.1);color:var(--text)}
+  .brand-btn.active.huawei{border-color:#cc0000;background:rgba(204,0,0,.08)}
+  .brand-btn.active.huawei .bb-logo{color:#cc0000}
+  .brand-btn.active.deye .bb-logo{color:var(--accent)}
+
+  /* INPUT CARD SECTIONS */
+  .input-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+  .input-card-title{font-size:11px;font-weight:800;letter-spacing:1.2px;color:var(--muted);margin-bottom:14px;text-transform:uppercase}
+  .bill-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  @media(max-width:400px){.bill-row{grid-template-columns:1fr}}
+  .bill-input-wrap{position:relative}
+  .bill-input-wrap span{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:13px;font-weight:700;color:var(--muted);pointer-events:none}
+  .bill-input-wrap input{padding-left:32px}
+  .bill-avg-badge{
+    display:inline-flex;align-items:center;gap:6px;
+    background:rgba(239,108,46,.12);border:1px solid rgba(239,108,46,.35);
+    color:var(--accent);border-radius:8px;padding:6px 11px;font-size:13px;font-weight:700;margin-top:8px;
+  }
+  .bill-avg-badge.empty{background:var(--panel-2);border-color:var(--line);color:var(--muted)}
+
+  /* SYSTEM SELECTOR */
+  .pkg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px}
+  @media(max-width:500px){.pkg-grid{grid-template-columns:repeat(2,1fr)}}
+  .pkg-btn{
+    border:1px solid var(--line);background:var(--field);border-radius:10px;
+    padding:10px 6px 8px;display:flex;flex-direction:column;align-items:center;gap:2px;
+    color:var(--text);font-size:12px;font-weight:600;transition:border-color .15s,background .15s;
+  }
+  .pkg-btn .pk-kwp{font-size:15px;font-weight:800;color:var(--accent)}
+  .pkg-btn .pk-panels{font-size:10px;color:var(--muted);font-weight:600}
+  .pkg-btn .pk-price{font-size:10.5px;color:var(--text)}
+  .pkg-btn.active{border-color:var(--accent);background:rgba(239,108,46,.1)}
+  .pkg-btn.three-only{border-style:dashed}
+  .pkg-btn.three-only .pk-kwp{color:var(--muted)}
+  .pkg-phase-note{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5}
+
+  /* PHASE TOGGLE */
+  .phase-toggle{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+
+  /* BATTERY SELECTOR */
+  .bat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  @media(max-width:400px){.bat-grid{grid-template-columns:repeat(2,1fr)}}
+  .bat-btn{
+    border:1px solid var(--line);background:var(--field);border-radius:10px;
+    padding:10px 4px 8px;display:flex;flex-direction:column;align-items:center;gap:2px;
+    color:var(--text);font-size:12px;font-weight:600;
+  }
+  .bat-btn .bb-n{font-size:18px;font-weight:800}
+  .bat-btn .bb-kwh{font-size:10px;color:var(--muted)}
+  .bat-btn .bb-cost{font-size:10px;color:var(--muted);margin-top:2px}
+  .bat-btn.active{border-color:var(--done);background:rgba(63,174,111,.1)}
+  .bat-btn.active .bb-n{color:var(--done)}
 </style>
 </head>
 <body>
@@ -647,51 +709,180 @@ function toast(msg, err){
 }
 
 /* ---------- CALCULATOR DATA ---------- */
-const CALC_PACKAGES = [
-  {min:200, max:300,  kwp:4.2,  assumedPhase:"single", savePct:67.666667, okapiMonthly:167, okapiPrice:12999, price:13799, voltek:2000, suria:1800},
-  {min:301, max:350,  kwp:6,    assumedPhase:"single", savePct:71.5,      okapiMonthly:225, okapiPrice:17999, price:17999, voltek:2000, suria:3000},
-  {min:351, max:500,  kwp:8.4,  assumedPhase:"three",  savePct:71.2,      okapiMonthly:311, okapiPrice:23999, price:23999, voltek:2000, suria:3000},
-  {min:501, max:800,  kwp:10.2, assumedPhase:"three",  savePct:56.625,    okapiMonthly:397, okapiPrice:29999, price:28999, voltek:2000, suria:3000},
-  {min:801, max:1000, kwp:12,   assumedPhase:"three",  savePct:69.2,      okapiMonthly:478, okapiPrice:34999, price:33999, voltek:2000, suria:3000},
-];
-const BATTERY_PRICE = 6500;
+
+// New pricelist (ATAP, from PRICELIST_OUTRIGHT_ATAP_HYBRID_PROGRAMMED.xlsx — New Price sheet)
+// Each entry: kwp, panels, phase allowed ("both"|"three"), then prices per brand
+// savePct: estimated saving percentage (OKAPI programme basis, kept from original system)
+// okapiMonthly / okapiPrice: OKAPI 10-year installment basis (kept from original)
+
+const PRICE_DATA = {
+  deye: {
+    // kwp: [panels, single_atap, three_atap, bat5kwh_add]
+    // single & three phase same price in new Deye list
+    battery5kwh: 6500,
+    packages: [
+      {kwp:5.4,  panels:9,  sp:15999, tp:15999, phase:"both"},
+      {kwp:6.0,  panels:10, sp:17999, tp:17999, phase:"both"},
+      {kwp:6.6,  panels:11, sp:18799, tp:18799, phase:"both"},
+      {kwp:7.2,  panels:12, sp:20599, tp:20599, phase:"both"},
+      {kwp:7.8,  panels:13, sp:22199, tp:22199, phase:"both"},
+      {kwp:8.4,  panels:14, sp:23999, tp:23999, phase:"both"},
+      {kwp:9.0,  panels:15, sp:26999, tp:26999, phase:"both"},
+      {kwp:9.6,  panels:16, sp:null,  tp:27399, phase:"three"},
+      {kwp:10.2, panels:17, sp:null,  tp:28999, phase:"three"},
+      {kwp:10.8, panels:18, sp:null,  tp:30799, phase:"three"},
+      {kwp:12.0, panels:20, sp:null,  tp:34199, phase:"three"},
+      {kwp:13.2, panels:22, sp:null,  tp:37599, phase:"three"},
+      {kwp:13.8, panels:23, sp:null,  tp:39299, phase:"three"},
+      {kwp:14.4, panels:24, sp:null,  tp:40999, phase:"three"},
+      {kwp:15.6, panels:26, sp:null,  tp:44399, phase:"three"},
+      {kwp:16.8, panels:28, sp:null,  tp:47799, phase:"three"},
+      {kwp:17.4, panels:29, sp:null,  tp:49599, phase:"three"},
+      {kwp:18.6, panels:31, sp:null,  tp:52999, phase:"three"},
+    ]
+  },
+  huawei: {
+    battery5kwh_first: 15000,   // first battery
+    battery5kwh_add:   9400,    // second battery onwards
+    battery_ctrl:      18300,   // LUNA2000-7-E1, for >15kWh
+    packages: [
+      {kwp:5.4,  panels:9,  sp:15999, tp:17999, phase:"both"},
+      {kwp:6.0,  panels:10, sp:17999, tp:19999, phase:"both"},
+      {kwp:6.6,  panels:11, sp:18799, tp:20799, phase:"both"},
+      {kwp:7.2,  panels:12, sp:21599, tp:23599, phase:"both"},
+      {kwp:7.8,  panels:13, sp:null,  tp:25399, phase:"three"},
+      {kwp:8.4,  panels:14, sp:null,  tp:27199, phase:"three"},
+      {kwp:9.0,  panels:15, sp:null,  tp:28999, phase:"three"},
+      {kwp:9.6,  panels:16, sp:null,  tp:30999, phase:"three"},
+      {kwp:10.2, panels:17, sp:null,  tp:32599, phase:"three"},
+      {kwp:10.8, panels:18, sp:null,  tp:34399, phase:"three"},
+      {kwp:12.0, panels:20, sp:null,  tp:37999, phase:"three"},
+      {kwp:13.2, panels:22, sp:null,  tp:41599, phase:"three"},
+      {kwp:13.8, panels:23, sp:null,  tp:43399, phase:"three"},
+      {kwp:14.4, panels:24, sp:null,  tp:45199, phase:"three"},
+      {kwp:15.6, panels:26, sp:null,  tp:48799, phase:"three"},
+      {kwp:16.8, panels:28, sp:null,  tp:52399, phase:"three"},
+      {kwp:17.4, panels:29, sp:null,  tp:54199, phase:"three"},
+      {kwp:18.6, panels:31, sp:null,  tp:57799, phase:"three"},
+    ]
+  }
+};
+
+// Saving % and OKAPI data mapped by kwp (kept from original programme data)
+const OKAPI_DATA = {
+  5.4:  {savePct:67.7, okapiMonthly:167,  okapiPrice:12999, suria:1800},
+  6.0:  {savePct:71.5, okapiMonthly:198,  okapiPrice:14999, suria:3000},
+  6.6:  {savePct:71.5, okapiMonthly:218,  okapiPrice:16499, suria:3000},
+  7.2:  {savePct:71.5, okapiMonthly:238,  okapiPrice:17999, suria:3000},
+  7.8:  {savePct:71.5, okapiMonthly:258,  okapiPrice:19499, suria:3000},
+  8.4:  {savePct:71.2, okapiMonthly:278,  okapiPrice:20999, suria:3000},
+  9.0:  {savePct:71.2, okapiMonthly:311,  okapiPrice:23499, suria:3000},
+  9.6:  {savePct:71.2, okapiMonthly:318,  okapiPrice:23999, suria:3000},
+  10.2: {savePct:71.2, okapiMonthly:336,  okapiPrice:25399, suria:3000},
+  10.8: {savePct:56.6, okapiMonthly:357,  okapiPrice:26999, suria:3000},
+  12.0: {savePct:69.2, okapiMonthly:397,  okapiPrice:29999, suria:3000},
+  13.2: {savePct:69.2, okapiMonthly:436,  okapiPrice:32999, suria:3000},
+  13.8: {savePct:69.2, okapiMonthly:456,  okapiPrice:34499, suria:3000},
+  14.4: {savePct:69.2, okapiMonthly:476,  okapiPrice:35999, suria:3000},
+  15.6: {savePct:69.2, okapiMonthly:515,  okapiPrice:38999, suria:3000},
+  16.8: {savePct:69.2, okapiMonthly:555,  okapiPrice:41999, suria:3000},
+  17.4: {savePct:69.2, okapiMonthly:575,  okapiPrice:43499, suria:3000},
+  18.6: {savePct:69.2, okapiMonthly:615,  okapiPrice:46499, suria:3000},
+};
+
+const VOLTEK_REBATE = 2000;
+
 const EV_RATIOS = [
   {value:"50/50", label:"50 / 50 — balanced day & night"},
   {value:"33/67", label:"33 / 67 — mostly night"},
   {value:"20/80", label:"20 / 80 — heavy night charging"},
 ];
-const RM  = n => "RM " + Math.round(n).toLocaleString();
+const RM = n => "RM " + Math.round(n).toLocaleString();
 
-function pickPackage(avg, userPhase){
-  const ladder = CALC_PACKAGES;
-  const inLadder = b => ladder.find(p=>b>=p.min && b<=p.max);
-  let note="";
-  let pkg = inLadder(Math.min(Math.max(avg,200),1000)) || (avg<200 ? ladder[0] : ladder[ladder.length-1]);
-  if(avg<200) note="Bill below the smallest package — showing the entry system.";
-  if(avg>1000) note="Bill exceeds the largest package — a custom system may be quoted.";
-  const assumed = (userPhase!=="single" && userPhase!=="three");
-  const displayPhase = assumed ? pkg.assumedPhase : userPhase;
-  return {pkg, note, displayPhase, assumed};
+function getBatteryPrice(brand, nth) {
+  // nth = 1 for first battery, 2+ for additional
+  if (brand === "huawei") return nth <= 1 ? PRICE_DATA.huawei.battery5kwh_first : PRICE_DATA.huawei.battery5kwh_add;
+  return PRICE_DATA.deye.battery5kwh; // deye flat 6500
 }
 
-function computeEstimate(a, pkg, batteries){
-  const effPct = pkg.savePct + 10*batteries;
+function getBatteryCost(brand, batteries) {
+  if (batteries === 0) return 0;
+  if (brand === "huawei") {
+    return PRICE_DATA.huawei.battery5kwh_first + Math.max(0, batteries - 1) * PRICE_DATA.huawei.battery5kwh_add;
+  }
+  return batteries * PRICE_DATA.deye.battery5kwh;
+}
+
+function getBatteryLabel(brand) {
+  if (brand === "huawei") return `1st: ${RM(PRICE_DATA.huawei.battery5kwh_first)} · 2nd+: ${RM(PRICE_DATA.huawei.battery5kwh_add)} per 5kWh`;
+  return `${RM(PRICE_DATA.deye.battery5kwh)} per 5kWh`;
+}
+
+function pickPackage(avg, userPhase, brand) {
+  const list = PRICE_DATA[brand].packages;
+  // Determine phase
+  let phase = userPhase;
+  // Bill-to-kwp heuristic: RM200→5.4kWp ... RM1000+→18.6kWp
+  // Map bill ranges to kwp tiers
+  const billMap = [
+    {max:300,  kwp:5.4},  {max:350,  kwp:6.0},  {max:420,  kwp:6.6},
+    {max:460,  kwp:7.2},  {max:520,  kwp:7.8},  {max:600,  kwp:8.4},
+    {max:700,  kwp:9.0},  {max:800,  kwp:9.6},  {max:870,  kwp:10.2},
+    {max:950,  kwp:10.8}, {max:1100, kwp:12.0}, {max:1200, kwp:13.2},
+    {max:1300, kwp:13.8}, {max:1400, kwp:14.4}, {max:1550, kwp:15.6},
+    {max:1700, kwp:16.8}, {max:1850, kwp:17.4}, {max:9999, kwp:18.6},
+  ];
+  const targetKwp = avg < 200
+    ? 5.4
+    : (billMap.find(b => avg <= b.max) || billMap[billMap.length-1]).kwp;
+
+  let pkg = list.find(p => p.kwp === targetKwp);
+  if (!pkg) pkg = list[list.length - 1];
+
+  // Phase fallback
+  let assumedPhase = phase;
+  if (phase === "auto") {
+    assumedPhase = (pkg.phase === "three") ? "three" : "single";
+  }
+  // If requested single but package is three-only
+  if (assumedPhase === "single" && pkg.phase === "three") {
+    assumedPhase = "three";
+  }
+
+  const atapPrice = (assumedPhase === "single" && pkg.sp !== null) ? pkg.sp : pkg.tp;
+  const okapi = OKAPI_DATA[pkg.kwp] || OKAPI_DATA[12.0];
+
+  let note = "";
+  if (avg < 200) note = "Bill below the smallest package — showing the entry system.";
+  if (avg > 1850) note = "Bill exceeds the largest package — a custom system may be quoted.";
+  const phaseNote = (phase === "auto")
+    ? `Phase assumed: ${assumedPhase === "single" ? "Single" : "Three"} phase (based on system size).`
+    : "";
+
+  return { pkg, atapPrice, okapi, note, phaseNote, phase: assumedPhase };
+}
+
+function computeEstimate(a, brand, pkg, atapPrice, okapi, batteries) {
+  const batCost = getBatteryCost(brand, batteries);
+  const effPct = okapi.savePct + 10 * batteries;
   const save = Math.round(a * effPct / 100);
   const billAfter = Math.max(Math.round(a - save), 0);
-  const batCost = batteries * BATTERY_PRICE;
-  const installment = batteries>0
-    ? Math.round((BATTERY_PRICE*batteries + pkg.okapiPrice) * 1.54 / 120)
-    : pkg.okapiMonthly;
-  const totalPayment = pkg.price - pkg.voltek + batCost;
-  const invest = totalPayment - pkg.suria;
-  const roiYears = save>0 ? (invest / save / 12) : 0;
-  const cardCharge = Math.round((pkg.price + batCost) * 0.06 * 100) / 100;
-  const cardOverflow = cardCharge > pkg.voltek ? (cardCharge - pkg.voltek) : 0;
+  const installment = batteries > 0
+    ? Math.round((batCost + okapi.okapiPrice) * 1.54 / 120)
+    : okapi.okapiMonthly;
+  const totalPayment = atapPrice - VOLTEK_REBATE + batCost;
+  const invest = totalPayment - okapi.suria;
+  const roiYears = save > 0 ? (invest / save / 12) : 0;
+  const cardCharge = Math.round((atapPrice + batCost) * 0.06);
+  const cardOverflow = cardCharge > VOLTEK_REBATE ? (cardCharge - VOLTEK_REBATE) : 0;
   const cardTotal = totalPayment + cardOverflow;
-  const cardInvest = cardTotal - pkg.suria;
-  const cardRoi = save>0 ? (cardInvest / save / 12) : 0;
-  return {batteries, batCost, save, billAfter, installment, totalPayment, invest, roiYears,
-          cardCharge, cardOverflow, cardTotal, cardInvest, cardRoi, cashflow:(save - installment)};
+  const cardInvest = cardTotal - okapi.suria;
+  const cardRoi = save > 0 ? (cardInvest / save / 12) : 0;
+  return {
+    batteries, batCost, save, billAfter, installment, totalPayment, invest, roiYears,
+    cardCharge, cardOverflow, cardTotal, cardInvest, cardRoi, cashflow: (save - installment),
+    atapPrice
+  };
 }
 
 /* ---------- UI HELPERS ---------- */
@@ -705,14 +896,16 @@ function el(tag, cls, txt){
 function calcCardHtml(st, opts){
   opts = opts||{};
   const batWord = n => n+(n>1?" batteries":" battery");
-  let evLine = `EV: ${st.ev==="yes"?"Yes":"No"} · Day/Night: ${st.ratio}`;
-  if(st.batteries) evLine += ` · <b>${batWord(st.batteries)}</b> (+${RM(st.batCost)} · saving rate +${st.batteries*10}%)`;
-  else evLine += ` · no additional battery`;
+  const brandLabel = st.brand ? st.brand.charAt(0).toUpperCase()+st.brand.slice(1) : "";
+  let sysLine = `${brandLabel} · ${st.pkg.kwp} kWp · ${st.pkg.panels} panels · ${st.phase==="single"?"Single":"Three"} Phase`;
+  let evLine = `EV: ${st.ev==="yes"?"Yes":"No"} · Day/Night: ${st.ratio||"50/50"}`;
+  if(st.batteries) evLine += ` · ${batWord(st.batteries)} (+${RM(st.batCost)})`;
+  else evLine += ` · no battery`;
   return `
     <div class="calc-reco">
       <div>
-        <div class="cr-k">${opts.heading||"RECOMMENDED SYSTEM"}</div>
-        <div class="cr-v">${st.pkg.kwp} kWp · ${st.phase==="single"?"Single":"Three"} Phase</div>
+        <div class="cr-k">${opts.heading||"SELECTED SYSTEM"}</div>
+        <div class="cr-v">${sysLine}</div>
         <div class="cr-s">${evLine}</div>
         ${st.phaseNote?`<div class="cr-n">${st.phaseNote}</div>`:""}
         ${st.note?`<div class="cr-n">⚠ ${st.note}</div>`:""}
@@ -727,18 +920,18 @@ function calcCardHtml(st, opts){
     <div class="plan-grid">
       <div class="plan rakyat">
         <div class="plan-h">SuRIA RAKYAT · OKAPI Installment</div>
-        <div class="plan-row"><span>Monthly installment${st.batteries?` (incl. ${st.batteries} batter${st.batteries>1?"ies":"y"})`:""}</span><b>${RM(st.installment)}</b></div>
+        <div class="plan-row"><span>Monthly installment${st.batteries?` (incl. ${batWord(st.batteries)})`:""}</span><b>${RM(st.installment)}</b></div>
         <div class="plan-row"><span>Monthly saving</span><b>${RM(st.save)}</b></div>
         <div class="plan-row hl"><span>Positive cashflow / month</span><b>${st.cashflow>=0?"+":""}${RM(st.cashflow)}</b></div>
         <div class="plan-f">10 years installment · 10+ years Voltek warranty · No big upfront cost.</div>
       </div>
       <div class="plan prime">
-        <div class="plan-h">SuRIA PRIME · Outright Purchase</div>
-        <div class="plan-row"><span>System price</span><b>${RM(st.pkg.price)}</b></div>
-        <div class="plan-row"><span>Voltek rebate</span><b>− ${RM(st.pkg.voltek)}</b></div>
-        ${st.batteries?`<div class="plan-row"><span>Battery × ${st.batteries}</span><b>+ ${RM(st.batCost)}</b></div>`:""}
+        <div class="plan-h">SuRIA PRIME · Outright (ATAP)</div>
+        <div class="plan-row"><span>System price (ATAP)</span><b>${RM(st.atapPrice)}</b></div>
+        <div class="plan-row"><span>Voltek rebate</span><b>− ${RM(VOLTEK_REBATE)}</b></div>
+        ${st.batteries?`<div class="plan-row"><span>Battery × ${st.batteries} (${st.batteries*5}kWh)</span><b>+ ${RM(st.batCost)}</b></div>`:""}
         <div class="plan-row hl"><span>Total Payment</span><b>${RM(st.totalPayment)}</b></div>
-        <div class="plan-row"><span>SuRIA rebate</span><b>− ${RM(st.pkg.suria)}</b></div>
+        <div class="plan-row"><span>SuRIA rebate</span><b>− ${RM(st.okapi.suria)}</b></div>
         <div class="plan-row hl"><span>Total Investment</span><b>${RM(st.invest)}</b></div>
         <div class="plan-row"><span>Payback period (ROI)</span><b>${st.roiYears.toFixed(1)} years</b></div>
         <div class="plan-sub">💳 Credit Card easy payment (6% charge by deduct Voltek rebate)</div>
@@ -768,11 +961,11 @@ function renderCalcResult(result, st){
 function renderBatteryCompare(host, st){
   if(host.dataset.open==="1"){ host.innerHTML=""; host.dataset.open="0"; return; }
   host.dataset.open="1";
-  host.innerHTML = `<div class="cmp-title">Full comparison · ${st.pkg.kwp} kWp — 0, 1 and 2 batteries</div>
+  host.innerHTML = `<div class="cmp-title">Full comparison · ${st.pkg.kwp} kWp (${st.brand.charAt(0).toUpperCase()+st.brand.slice(1)}) — 0, 1 and 2 batteries</div>
     <div class="cmp-reco-top">⭐ Recommended: the <b>no-battery</b> system — lowest upfront cost and fastest payback.</div>`;
   [0,1,2].forEach(n=>{
-    const e = computeEstimate(st.a, st.pkg, n);
-    const cst = {...st, ...e, extra:n, evBat:0};
+    const e = computeEstimate(st.a, st.brand, st.pkg, st.atapPrice, st.okapi, n);
+    const cst = {...st, ...e, batteries:n};
     const card = el("div","calc-card cmp-card"+(n===0?" reco":""));
     const label = n===0 ? "Option A · No battery ⭐ Recommended" : `Option ${n===1?"B":"C"} · ${n} batter${n>1?"ies":"y"}`;
     card.innerHTML = calcCardHtml(cst, {heading:label});
@@ -786,84 +979,258 @@ function renderBatteryCompare(host, st){
 
 /* ---------- RENDER CALCULATOR ---------- */
 function renderCalculator(mount){
-  const box = el("div","calc-box");
+  const box = document.createElement("div");
+  box.className = "calc-box";
   box.innerHTML = `
-    <div class="calc-grid2">
-      <div class="field"><label>Customer name (optional)</label><input type="text" class="cb-name" placeholder="e.g. Encik Ahmad"/></div>
-      <div class="field"><label>Address (optional)</label><input type="text" class="cb-addr" placeholder="e.g. No 12, Taman Sejahtera, KL"/></div>
+    <!-- STEP 1: Customer -->
+    <div class="input-card">
+      <div class="input-card-title">👤 Customer Info</div>
+      <div class="calc-grid2">
+        <div class="field"><label>Customer name (optional)</label>
+          <input type="text" class="cb-name" placeholder="e.g. Encik Ahmad"/></div>
+        <div class="field"><label>Address (optional)</label>
+          <input type="text" class="cb-addr" placeholder="e.g. No 12, Taman Sejahtera"/></div>
+      </div>
     </div>
-    <div class="calc-grid">
-      <div class="field"><label>TNB bill — month 1 (RM)</label><input type="number" min="0" inputmode="decimal" class="cb-bill" placeholder="e.g. 320"/></div>
-      <div class="field"><label>Month 2 (RM, optional)</label><input type="number" min="0" inputmode="decimal" class="cb-bill" placeholder=""/></div>
-      <div class="field"><label>Month 3 (RM, optional)</label><input type="number" min="0" inputmode="decimal" class="cb-bill" placeholder=""/></div>
+
+    <!-- STEP 2: TNB Bills -->
+    <div class="input-card">
+      <div class="input-card-title">⚡ TNB Monthly Bills</div>
+      <div class="bill-row">
+        <div class="field">
+          <label>Month 1</label>
+          <div class="bill-input-wrap"><span>RM</span>
+            <input type="number" min="0" inputmode="decimal" class="cb-bill" placeholder="e.g. 320"/></div>
+        </div>
+        <div class="field">
+          <label>Month 2 <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+          <div class="bill-input-wrap"><span>RM</span>
+            <input type="number" min="0" inputmode="decimal" class="cb-bill" placeholder=""/></div>
+        </div>
+        <div class="field">
+          <label>Month 3 <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+          <div class="bill-input-wrap"><span>RM</span>
+            <input type="number" min="0" inputmode="decimal" class="cb-bill" placeholder=""/></div>
+        </div>
+      </div>
+      <div class="bill-avg-badge empty" data-avg>Enter bill above</div>
     </div>
-    <div class="calc-avg" data-avg>Average bill: —</div>
-    <div class="field"><label>Phase type</label>
-      <select class="cb-phase">
-        <option value="auto">Not sure — decide from the bill</option>
-        <option value="single">Single phase</option>
-        <option value="three">Three phase</option>
-      </select></div>
-    <div class="field"><label>EV (electric vehicle) user?</label>
+
+    <!-- STEP 3: Phase -->
+    <div class="input-card">
+      <div class="input-card-title">🔌 Phase Type</div>
+      <div class="phase-toggle seg cb-phaseseg">
+        <button type="button" data-ph="auto" class="active">Auto-detect</button>
+        <button type="button" data-ph="single">Single phase</button>
+        <button type="button" data-ph="three">Three phase</button>
+      </div>
+      <div class="calc-hint" style="margin-top:8px">Auto-detect picks phase based on system size. Choose manually if you know yours.</div>
+    </div>
+
+    <!-- STEP 4: Brand -->
+    <div class="input-card">
+      <div class="input-card-title">🏭 Inverter Brand</div>
+      <div class="brand-row">
+        <button type="button" class="brand-btn deye active" data-brand="deye">
+          <div class="bb-logo" style="color:var(--accent)">DEYE</div>
+          <div class="bb-sub">Battery: RM 6,500 / 5kWh</div>
+        </button>
+        <button type="button" class="brand-btn huawei" data-brand="huawei">
+          <div class="bb-logo" style="color:#cc0000">HUAWEI</div>
+          <div class="bb-sub">Battery: RM 15,000 1st · RM 9,400 add</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- STEP 5: System size -->
+    <div class="input-card">
+      <div class="input-card-title">☀️ Upgrade System Size <span style="font-weight:400;color:var(--muted)">(optional)</span></div>
+      <div class="calc-hint" style="margin-bottom:10px;margin-top:-4px">For customers requesting a larger system. The standard size is already selected from the TNB bill.</div>
+      <div class="pkg-grid cb-pkggrid"></div>
+      <div class="pkg-phase-note cb-phase-note"></div>
+    </div>
+
+    <!-- STEP 6: Batteries -->
+    <div class="input-card">
+      <div class="input-card-title">🔋 Add Battery Storage</div>
+      <div class="bat-grid cb-batgrid"></div>
+      <div class="calc-hint cb-bat-hint" style="margin-top:8px"></div>
+    </div>
+
+    <!-- STEP 7: EV -->
+    <div class="input-card">
+      <div class="input-card-title">🚗 EV & Energy Usage</div>
       <div class="seg cb-evseg">
-        <button type="button" data-ev="no" class="active">No</button>
-        <button type="button" data-ev="yes">Yes</button>
-      </div></div>
-    <div class="field"><label>Energy consumption ratio (Day / Night)</label>
-      <select class="cb-ratiosel">
-        ${EV_RATIOS.map(r=>`<option value="${r.value}">${r.label}</option>`).join("")}
-      </select>
-      <div class="calc-hint">Helps profile day vs night usage.</div>
+        <button type="button" data-ev="no" class="active">No EV</button>
+        <button type="button" data-ev="yes">Yes, I have EV</button>
+      </div>
+      <div class="cb-ev-ratio" style="margin-top:12px">
+        <div class="field"><label>Energy usage ratio (Day / Night)</label>
+          <select class="cb-ratiosel">
+            ${EV_RATIOS.map(r=>`<option value="${r.value}">${r.label}</option>`).join("")}
+          </select></div>
+      </div>
     </div>
-    <div class="field"><label>Additional Battery (optional)</label>
-      <select class="cb-extra">
-        <option value="0">None</option>
-        <option value="1">1 battery</option>
-        <option value="2">2 batteries</option>
-        <option value="3">3 batteries</option>
-      </select>
-      <div class="calc-hint">RM ${BATTERY_PRICE.toLocaleString()} each · saving rate +10% per battery</div>
-    </div>
-    <button type="button" class="btn cb-go">Calculate</button>
+
+    <button type="button" class="btn block cb-go" style="font-size:16px;padding:15px">
+      Calculate Solar Savings →
+    </button>
     <div class="cb-result"></div>`;
+
   mount.appendChild(box);
 
-  const bills = [...box.querySelectorAll(".cb-bill")];
-  const nameEl = box.querySelector(".cb-name");
-  const addrEl = box.querySelector(".cb-addr");
-  const avgEl = box.querySelector("[data-avg]");
-  const phaseSel = box.querySelector(".cb-phase");
-  const evBtns = [...box.querySelectorAll(".cb-evseg button")];
-  const ratioSel = box.querySelector(".cb-ratiosel");
-  const extraSel = box.querySelector(".cb-extra");
-  const result = box.querySelector(".cb-result");
-  let ev = "no";
+  // ── state ──────────────────────────────────────────────────────────────────
+  let brand = "deye";
+  let phase = "auto";
+  let ev    = "no";
+  let selKwp = null;   // null = auto from bill
+  let batteries = 0;
 
-  const avg = ()=>{
-    const v = bills.map(i=>parseFloat(i.value)).filter(n=>!isNaN(n) && n>0);
+  const bills     = [...box.querySelectorAll(".cb-bill")];
+  const nameEl    = box.querySelector(".cb-name");
+  const addrEl    = box.querySelector(".cb-addr");
+  const avgBadge  = box.querySelector("[data-avg]");
+  const phBtns    = [...box.querySelectorAll(".cb-phaseseg button")];
+  const brandBtns = [...box.querySelectorAll(".brand-btn")];
+  const evBtns    = [...box.querySelectorAll(".cb-evseg button")];
+  const evRatio   = box.querySelector(".cb-ev-ratio");
+  const ratioSel  = box.querySelector(".cb-ratiosel");
+  const pkgGrid   = box.querySelector(".cb-pkggrid");
+  const phNote    = box.querySelector(".cb-phase-note");
+  const batGrid   = box.querySelector(".cb-batgrid");
+  const batHint   = box.querySelector(".cb-bat-hint");
+  const result    = box.querySelector(".cb-result");
+
+  const avg = () => {
+    const v = bills.map(i=>parseFloat(i.value)).filter(n=>!isNaN(n)&&n>0);
     return v.length ? v.reduce((a,b)=>a+b,0)/v.length : 0;
   };
-  bills.forEach(i=> i.oninput = ()=>{
-    const a=avg();
-    avgEl.textContent = a ? ("Average bill: "+RM(a)+" / month") : "Average bill: —";
-  });
-  evBtns.forEach(b=> b.onclick = ()=>{
-    ev = b.dataset.ev;
-    evBtns.forEach(x=>x.classList.toggle("active", x===b));
+
+  function buildPkgGrid(autoKwp) {
+    const list = PRICE_DATA[brand].packages.filter(p => p.kwp >= 13.2);
+    const ph = phase;
+    pkgGrid.innerHTML = "";
+    list.forEach(pkg => {
+      const isThreeOnly = pkg.phase === "three";
+      const phaseOk = ph === "auto" || ph === "three" || !isThreeOnly;
+      const price = (ph === "single" && pkg.sp) ? pkg.sp : pkg.tp;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "pkg-btn" + (isThreeOnly ? " three-only" : "");
+      if (!phaseOk && ph === "single") btn.className += " pkg-btn-disabled";
+      const isActive = selKwp !== null ? pkg.kwp === selKwp : pkg.kwp === autoKwp;
+      if (isActive) btn.classList.add("active");
+      btn.innerHTML = `<span class="pk-kwp">${pkg.kwp} kWp</span>
+        <span class="pk-panels">${pkg.panels} panels</span>
+        <span class="pk-price">${RM(price)}</span>`;
+      btn.onclick = () => {
+        selKwp = pkg.kwp;
+        [...pkgGrid.querySelectorAll(".pkg-btn")].forEach(b=>b.classList.remove("active"));
+        btn.classList.add("active");
+        buildBatGrid();
+      };
+      pkgGrid.appendChild(btn);
+    });
+    // Phase note for three-only
+    const hasDashed = list.some(p=>p.phase==="three" && ph==="single");
+    phNote.textContent = hasDashed
+      ? "Dashed = three phase only. Select three phase to enable those sizes."
+      : "";
+  }
+
+  function buildBatGrid() {
+    batGrid.innerHTML = "";
+    batHint.textContent = getBatteryLabel(brand);
+    [0,1,2,3].forEach(n => {
+      const cost = getBatteryCost(brand, n);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "bat-btn" + (n === batteries ? " active" : "");
+      btn.innerHTML = `<span class="bb-n">${n}</span>
+        <span class="bb-kwh">${n===0 ? "no battery" : n*5+"kWh"}</span>
+        <span class="bb-cost">${n===0 ? "—" : "+"+RM(cost)}</span>`;
+      btn.onclick = () => {
+        batteries = n;
+        [...batGrid.querySelectorAll(".bat-btn")].forEach(b=>b.classList.remove("active"));
+        btn.classList.add("active");
+      };
+      batGrid.appendChild(btn);
+    });
+  }
+
+  function refreshGrids() {
+    const a = avg();
+    let autoKwp = 5.4;
+    if (a > 0) {
+      const res = pickPackage(a, phase, brand);
+      autoKwp = res.pkg.kwp;
+    }
+    if (selKwp === null) buildPkgGrid(autoKwp);
+    else buildPkgGrid(selKwp);  // keep selection, just reprice
+    buildBatGrid();
+  }
+
+  // ── event wiring ──────────────────────────────────────────────────────────
+  bills.forEach(i => i.oninput = () => {
+    const a = avg();
+    if (a) {
+      avgBadge.className = "bill-avg-badge";
+      avgBadge.textContent = "Average: " + RM(a) + " / month";
+    } else {
+      avgBadge.className = "bill-avg-badge empty";
+      avgBadge.textContent = "Enter bill above";
+    }
+    selKwp = null;  // reset manual selection on bill change
+    refreshGrids();
   });
 
-  box.querySelector(".cb-go").onclick = ()=>{
+  phBtns.forEach(b => b.onclick = () => {
+    phase = b.dataset.ph;
+    phBtns.forEach(x => x.classList.toggle("active", x === b));
+    refreshGrids();
+  });
+
+  brandBtns.forEach(b => b.onclick = () => {
+    brand = b.dataset.brand;
+    brandBtns.forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    refreshGrids();
+  });
+
+  evBtns.forEach(b => b.onclick = () => {
+    ev = b.dataset.ev;
+    evBtns.forEach(x => x.classList.toggle("active", x === b));
+  });
+
+  // ── initial render ────────────────────────────────────────────────────────
+  refreshGrids();
+
+  // ── calculate ─────────────────────────────────────────────────────────────
+  box.querySelector(".cb-go").onclick = () => {
     const a = avg();
-    if(!a){ toast("Enter at least one monthly TNB bill", true); return; }
-    const userPhase = phaseSel.value;
-    const {pkg, note, displayPhase, assumed} = pickPackage(a, userPhase);
-    const phaseNote = assumed ? "Phase assumed from the bill (Excel ranges): "+(displayPhase==="single"?"Single":"Three")+" phase." : "";
+    if (!a) { toast("Enter at least one monthly TNB bill", true); return; }
+    const activeKwp = selKwp || (() => {
+      const r = pickPackage(a, phase, brand);
+      return r.pkg.kwp;
+    })();
+    const picked = pickPackage(a, phase, brand);
+    const pkg = PRICE_DATA[brand].packages.find(p => p.kwp === activeKwp) || picked.pkg;
+    const phaseUsed = picked.phase;
+    const atapPrice = (phaseUsed === "single" && pkg.sp) ? pkg.sp : pkg.tp;
+    const okapi = OKAPI_DATA[pkg.kwp] || OKAPI_DATA[12.0];
     const ratio = ratioSel.value;
-    const extra = parseInt(extraSel.value)||0;
-    const e = computeEstimate(a, pkg, extra);
-    const state = {custName:(nameEl.value||"").trim(), custAddr:(addrEl.value||"").trim(),
-      a, phase:displayPhase, phaseNote, pkg, note, ev, ratio, evBat:0, extra, ...e};
-    renderCalcResult(result, state);
+    const e = computeEstimate(a, brand, pkg, atapPrice, okapi, batteries);
+    const st = {
+      custName: (nameEl.value||"").trim(),
+      custAddr: (addrEl.value||"").trim(),
+      a, brand, phase: phaseUsed,
+      phaseNote: picked.phaseNote,
+      pkg, atapPrice, okapi,
+      note: picked.note,
+      ev, ratio,
+      ...e
+    };
+    renderCalcResult(result, st);
     result.scrollIntoView({behavior:"smooth", block:"nearest"});
   };
 }
@@ -874,7 +1241,8 @@ function downloadCalcPdf(st){
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF({unit:"mm", format:"a4"});
   drawEstimatePage(doc, st);
-  deliverPdf(doc, "Voltek_Solar_Estimate_"+new Date().toISOString().slice(0,10)+".pdf");
+  const brand = st.brand ? "_"+st.brand.charAt(0).toUpperCase()+st.brand.slice(1) : "";
+  deliverPdf(doc, "Voltek_Solar_Estimate"+brand+"_"+new Date().toISOString().slice(0,10)+".pdf");
 }
 
 function downloadComparePdf(st){
@@ -902,7 +1270,7 @@ function downloadComparePdf(st){
   if(st.custAddr){ const al=doc.splitTextToSize("Address: "+st.custAddr, W-2*M); doc.text(al,M,y); y+=5*al.length; }
   doc.text("Average TNB bill: "+RM(st.a)+" / month   ·   System: "+st.pkg.kwp+" kWp   ·   "+(st.phase==="single"?"Single":"Three")+" phase", M, y); y+=8;
 
-  const opts=[0,1,2].map(n=>({n, e:computeEstimate(st.a, st.pkg, n)}));
+  const opts=[0,1,2].map(n=>({n, e:computeEstimate(st.a, st.brand, st.pkg, st.atapPrice, st.okapi, n)}));
   const recoCol=0;
   const labelW=64, colW=(W-2*M-labelW)/3;
   const colX=i=> M+labelW+i*colW;
@@ -943,11 +1311,11 @@ function downloadComparePdf(st){
   }
 
   y = drawTable("SuRIA PRIME · Outright Purchase", y, [
-    {label:"System price",     val:()=>RM(st.pkg.price)},
-    {label:"Voltek rebate",    val:()=>"- "+RM(st.pkg.voltek)},
-    {label:"Battery cost",     val:o=>o.n? "+ "+RM(o.e.batCost):"—"},
-    {label:"Total Payment",    val:o=>RM(o.e.totalPayment), bold:true},
-    {label:"SuRIA rebate",     val:()=>"- "+RM(st.pkg.suria)},
+    {label:"System price (ATAP)", val:()=>RM(st.atapPrice)},
+    {label:"Voltek rebate",       val:()=>"- "+RM(VOLTEK_REBATE)},
+    {label:"Battery cost",        val:o=>o.n? "+ "+RM(o.e.batCost):"—"},
+    {label:"Total Payment",       val:o=>RM(o.e.totalPayment), bold:true},
+    {label:"SuRIA rebate",        val:()=>"- "+RM(st.okapi.suria)},
     {label:"Total Investment", val:o=>RM(o.e.invest), bold:true},
     {label:"Payback (ROI)",    val:o=>o.e.roiYears.toFixed(1)+" yrs", bold:true},
   ], orange) + 6;
@@ -1026,11 +1394,12 @@ function drawEstimatePage(doc, st, opts){
   y+=2;
 
   section("RECOMMENDED SYSTEM");
+  const bdLabel = st.brand ? st.brand.charAt(0).toUpperCase()+st.brand.slice(1)+" · " : "";
   doc.setFontSize(16); doc.setTextColor(...navy); doc.setFont(undefined,"bold");
-  doc.text(st.pkg.kwp+" kWp  ·  "+(st.phase==="single"?"Single":"Three")+" Phase", M, y); y+=7;
+  doc.text(bdLabel+st.pkg.kwp+" kWp  ·  "+st.pkg.panels+" panels  ·  "+(st.phase==="single"?"Single":"Three")+" Phase", M, y); y+=7;
   doc.setFontSize(10); doc.setFont(undefined,"normal"); doc.setTextColor(...muted);
   doc.text(st.batteries
-    ? (st.batteries+(st.batteries>1?" batteries":" battery")+" (+"+RM(st.batCost)+" · saving rate +"+(st.batteries*10)+"%)")
+    ? (st.batteries+(st.batteries>1?" batteries":" battery")+" ("+RM(st.batCost)+" · saving rate +"+(st.batteries*10)+"%)")
     : "No additional battery", M, y); y+=6;
   if(st.note){ doc.setTextColor(...orange); doc.text("Note: "+st.note, M, y, {maxWidth:W-2*M}); y+=8; }
   y+=2;
@@ -1049,12 +1418,13 @@ function drawEstimatePage(doc, st, opts){
   line("Warranty", "10+ years Voltek warranty");
   y+=3;
 
-  section("PLAN B — SuRIA PRIME (OUTRIGHT)");
-  line("System price", RM(st.pkg.price));
-  line("Voltek rebate", "- "+RM(st.pkg.voltek));
-  if(st.batteries) line("Battery x "+st.batteries, "+ "+RM(st.batCost));
+  const brandLbl = st.brand ? " ("+st.brand.charAt(0).toUpperCase()+st.brand.slice(1)+")" : "";
+  section("PLAN B — SuRIA PRIME (OUTRIGHT ATAP"+brandLbl+")");
+  line("System price (ATAP)", RM(st.atapPrice));
+  line("Voltek rebate", "- "+RM(VOLTEK_REBATE));
+  if(st.batteries) line("Battery × "+st.batteries+" ("+st.batteries*5+"kWh)", "+ "+RM(st.batCost));
   line("Total Payment", RM(st.totalPayment), true);
-  line("SuRIA rebate", "- "+RM(st.pkg.suria));
+  line("SuRIA rebate", "- "+RM(st.okapi.suria));
   line("Total Investment", RM(st.invest), true);
   line("Payback period (ROI)", st.roiYears.toFixed(1)+" years", true);
   line("Warranty", "10+ years Voltek warranty");
