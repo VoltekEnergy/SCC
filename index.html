@@ -719,51 +719,68 @@ function toast(msg, err){
 // okapiMonthly / okapiPrice: OKAPI 10-year installment basis (kept from original)
 
 const PRICE_DATA = {
-  // ≤12 kWp: from PV_System_proposal_11_6.xlsx (5 packages only, brand-neutral outright price)
-  // ≥13.2 kWp: from Aspire_-_Price_List_Updated__exclude_voltek_rebate_.xlsx (ATAP, Deye & Huawei separate)
-  // bat5/bat10/bat15 = total bundled price (system + batteries)
+  // ≤12 kWp recommended system (PV_System_proposal_11_6.xlsx outright prices)
+  // ≥13.2 kWp upgrade system (Aspire v2 ATAP prices)
+  // Deye & Sungrow battery: flat RM 6,500/5kWh
+  // Huawei battery: 1st RM 15,000 · 2nd+ RM 9,400
   deye: {
     battery5kwh: 6500,
     packages: [
-      // ── ≤12 kWp: PV_System_proposal prices (outright, brand-neutral) ──
+      // ── ≤12 kWp: PV_System_proposal prices (5 recommended sizes) ──
       {kwp:4.2,  panels:7,  sp:13799, tp:null,  bat5sp:20299, bat10sp:26799, bat15sp:33299, bat5tp:null,  bat10tp:null,  bat15tp:null,  phase:"single"},
       {kwp:6.0,  panels:10, sp:17999, tp:null,  bat5sp:24499, bat10sp:30999, bat15sp:37499, bat5tp:null,  bat10tp:null,  bat15tp:null,  phase:"single"},
       {kwp:8.4,  panels:14, sp:null,  tp:23999, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:30499, bat10tp:36999, bat15tp:43499, phase:"three"},
       {kwp:10.2, panels:17, sp:null,  tp:28999, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:35499, bat10tp:41999, bat15tp:48499, phase:"three"},
       {kwp:12.0, panels:20, sp:null,  tp:33999, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:40499, bat10tp:46999, bat15tp:53499, phase:"three"},
-      // ── ≥13.2 kWp: Aspire ATAP prices (Deye) ──
-      {kwp:13.2, panels:22, sp:null,  tp:39599, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:46099, bat10tp:52599, bat15tp:59099, phase:"three"},
-      {kwp:13.8, panels:23, sp:null,  tp:41299, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:47799, bat10tp:54299, bat15tp:60799, phase:"three"},
-      {kwp:14.4, panels:24, sp:null,  tp:42999, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:49499, bat10tp:55999, bat15tp:62499, phase:"three"},
-      {kwp:15.6, panels:26, sp:null,  tp:46399, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:52899, bat10tp:59399, bat15tp:65899, phase:"three"},
-      {kwp:16.8, panels:28, sp:null,  tp:49799, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:56299, bat10tp:62799, bat15tp:69299, phase:"three"},
-      {kwp:17.4, panels:29, sp:null,  tp:51599, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:58099, bat10tp:64599, bat15tp:71099, phase:"three"},
-      {kwp:18.6, panels:31, sp:null,  tp:54999, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:61499, bat10tp:67999, bat15tp:74499, phase:"three"},
+      // ── ≥13.2 kWp: Aspire v2 ATAP prices (Deye) ──
+      {kwp:13.2, panels:22, sp:null,  tp:37399, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:43899, bat10tp:50399, bat15tp:56899, phase:"three"},
+      {kwp:13.8, panels:23, sp:null,  tp:39099, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:45599, bat10tp:52099, bat15tp:58599, phase:"three"},
+      {kwp:14.4, panels:24, sp:null,  tp:40799, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:47299, bat10tp:53799, bat15tp:60299, phase:"three"},
+      {kwp:15.6, panels:26, sp:null,  tp:44199, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:50699, bat10tp:57199, bat15tp:63699, phase:"three"},
+      {kwp:16.8, panels:28, sp:null,  tp:47599, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:54099, bat10tp:60599, bat15tp:67099, phase:"three"},
+      {kwp:17.4, panels:29, sp:null,  tp:49199, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:55699, bat10tp:62199, bat15tp:68699, phase:"three"},
+      {kwp:18.6, panels:31, sp:null,  tp:52699, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:59199, bat10tp:65699, bat15tp:72199, phase:"three"},
     ]
   },
   sungrow: {
-    battery5kwh: 6500,  // same as Deye
-    get packages() { return PRICE_DATA.deye.packages; }  // same system prices as Deye
+    battery5kwh: 6500,
+    packages: [
+      // ── Sungrow: own prices from v2 file where available, else PV_System_proposal ──
+      {kwp:4.2,  panels:7,  sp:13799, tp:null,  bat5sp:20299, bat10sp:26799, bat15sp:33299, bat5tp:null,  bat10tp:null,  bat15tp:null,  phase:"single"},
+      {kwp:4.8,  panels:8,  sp:15999, tp:null,  bat5sp:22499, bat10sp:28999, bat15sp:35499, bat5tp:null,  bat10tp:null,  bat15tp:null,  phase:"single"},
+      {kwp:6.0,  panels:10, sp:17999, tp:null,  bat5sp:24499, bat10sp:30999, bat15sp:37499, bat5tp:null,  bat10tp:null,  bat15tp:null,  phase:"single"},
+      {kwp:8.4,  panels:14, sp:null,  tp:23999, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:30499, bat10tp:36999, bat15tp:43499, phase:"three"},
+      {kwp:10.2, panels:17, sp:null,  tp:28999, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:35499, bat10tp:41999, bat15tp:48499, phase:"three"},
+      {kwp:12.0, panels:20, sp:null,  tp:33999, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:40499, bat10tp:46999, bat15tp:53499, phase:"three"},
+      // ── ≥13.2 kWp: same as Deye (Sungrow not listed separately in Aspire) ──
+      {kwp:13.2, panels:22, sp:null,  tp:37399, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:43899, bat10tp:50399, bat15tp:56899, phase:"three"},
+      {kwp:13.8, panels:23, sp:null,  tp:39099, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:45599, bat10tp:52099, bat15tp:58599, phase:"three"},
+      {kwp:14.4, panels:24, sp:null,  tp:40799, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:47299, bat10tp:53799, bat15tp:60299, phase:"three"},
+      {kwp:15.6, panels:26, sp:null,  tp:44199, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:50699, bat10tp:57199, bat15tp:63699, phase:"three"},
+      {kwp:16.8, panels:28, sp:null,  tp:47599, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:54099, bat10tp:60599, bat15tp:67099, phase:"three"},
+      {kwp:17.4, panels:29, sp:null,  tp:49199, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:55699, bat10tp:62199, bat15tp:68699, phase:"three"},
+      {kwp:18.6, panels:31, sp:null,  tp:52699, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:59199, bat10tp:65699, bat15tp:72199, phase:"three"},
+    ]
   },
   huawei: {
     battery5kwh_first: 15000,
     battery5kwh_add:   9400,
     battery_ctrl:      18300,
     packages: [
-      // ── ≤12 kWp: PV_System_proposal prices (same outright, Huawei battery pricing) ──
+      // ── ≤12 kWp: PV_System_proposal outright prices + Huawei battery pricing ──
       {kwp:4.2,  panels:7,  sp:13799, tp:null,  bat5sp:28799, bat10sp:38199, bat15sp:47599, bat5tp:null,  bat10tp:null,  bat15tp:null,  phase:"single"},
       {kwp:6.0,  panels:10, sp:17999, tp:null,  bat5sp:32999, bat10sp:42399, bat15sp:51799, bat5tp:null,  bat10tp:null,  bat15tp:null,  phase:"single"},
       {kwp:8.4,  panels:14, sp:null,  tp:23999, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:38999, bat10tp:48399, bat15tp:57799, phase:"three"},
       {kwp:10.2, panels:17, sp:null,  tp:28999, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:43999, bat10tp:53399, bat15tp:62799, phase:"three"},
       {kwp:12.0, panels:20, sp:null,  tp:33999, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:48999, bat10tp:58399, bat15tp:67799, phase:"three"},
-      // ── ≥13.2 kWp: Aspire ATAP prices (Huawei) ──
-      {kwp:13.2, panels:22, sp:null,  tp:39599, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:54599, bat10tp:63999, bat15tp:73399, phase:"three"},
-      {kwp:13.8, panels:23, sp:null,  tp:41299, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:56299, bat10tp:65699, bat15tp:75099, phase:"three"},
-      {kwp:14.4, panels:24, sp:null,  tp:42999, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:57999, bat10tp:67399, bat15tp:76799, phase:"three"},
-      {kwp:15.6, panels:26, sp:null,  tp:46399, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:61399, bat10tp:70799, bat15tp:80199, phase:"three"},
-      {kwp:16.8, panels:28, sp:null,  tp:49799, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:64799, bat10tp:74199, bat15tp:83599, phase:"three"},
-      {kwp:17.4, panels:29, sp:null,  tp:51599, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:66599, bat10tp:75999, bat15tp:85399, phase:"three"},
-      {kwp:18.6, panels:31, sp:null,  tp:54999, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:69999, bat10tp:79399, bat15tp:88799, phase:"three"},
+      // ── ≥13.2 kWp: Aspire v2 ATAP prices (Huawei) ──
+      {kwp:13.2, panels:22, sp:null,  tp:37399, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:52399, bat10tp:61799, bat15tp:71199, phase:"three"},
+      {kwp:13.8, panels:23, sp:null,  tp:39099, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:54099, bat10tp:63499, bat15tp:72899, phase:"three"},
+      {kwp:14.4, panels:24, sp:null,  tp:40799, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:55799, bat10tp:65199, bat15tp:74599, phase:"three"},
+      {kwp:15.6, panels:26, sp:null,  tp:44199, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:59199, bat10tp:68599, bat15tp:77999, phase:"three"},
+      {kwp:16.8, panels:28, sp:null,  tp:47599, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:62599, bat10tp:71999, bat15tp:81399, phase:"three"},
+      {kwp:17.4, panels:29, sp:null,  tp:49199, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:64199, bat10tp:73599, bat15tp:82999, phase:"three"},
+      {kwp:18.6, panels:31, sp:null,  tp:52699, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:67699, bat10tp:77099, bat15tp:86499, phase:"three"},
     ]
   }
 };
@@ -827,20 +844,28 @@ function pickPackage(avg, userPhase, brand) {
   // Bill-to-kwp heuristic: RM200→5.4kWp ... RM1000+→18.6kWp
   // Map bill ranges to kwp tiers
   const billMap = [
-    // ≤12 kWp: only 5 sizes from PV_System_proposal_11_6.xlsx
-    {max:325,  kwp:4.2},  {max:500,  kwp:6.0},
+    // ≤12 kWp: PV_System_proposal sizes (Sungrow also has 4.8kWp)
+    {max:250,  kwp:4.2},  {max:325,  kwp:4.8},  {max:500,  kwp:6.0},
     {max:700,  kwp:8.4},  {max:900,  kwp:10.2}, {max:1100, kwp:12.0},
-    // ≥13.2 kWp: ATAP sizes from Aspire
+    // ≥13.2 kWp: ATAP sizes from Aspire v2
     {max:1200, kwp:13.2}, {max:1300, kwp:13.8}, {max:1400, kwp:14.4},
     {max:1550, kwp:15.6}, {max:1700, kwp:16.8}, {max:1850, kwp:17.4},
     {max:9999, kwp:18.6},
   ];
+  // For brands that don't have the exact kwp, pick the nearest available
+  const brandPkgs = PRICE_DATA[brand].packages;
   const targetKwp = avg < 200
-    ? 5.4
+    ? brandPkgs[0].kwp
     : (billMap.find(b => avg <= b.max) || billMap[billMap.length-1]).kwp;
+  // Find exact match or nearest in brand's package list
+  let pkg = brandPkgs.find(p => p.kwp === targetKwp);
+  if (!pkg) {
+    // Pick closest kwp available in this brand
+    pkg = brandPkgs.reduce((prev, cur) =>
+      Math.abs(cur.kwp - targetKwp) < Math.abs(prev.kwp - targetKwp) ? cur : prev
+    );
+  }
 
-  let pkg = list.find(p => p.kwp === targetKwp);
-  if (!pkg) pkg = list[list.length - 1];
 
   // Phase fallback
   let assumedPhase = phase;
