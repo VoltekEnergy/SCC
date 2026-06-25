@@ -181,7 +181,8 @@
   @media(prefers-reduced-motion:reduce){*{transition:none !important}}
 
   /* BRAND SELECTOR */
-  .brand-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+  .brand-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px}
+  @media(max-width:400px){.brand-row{grid-template-columns:1fr 1fr}}
   .brand-btn{
     border:2px solid var(--line);background:var(--panel-2);border-radius:12px;
     padding:14px 10px 12px;display:flex;flex-direction:column;align-items:center;gap:6px;
@@ -193,6 +194,8 @@
   .brand-btn.active.huawei{border-color:#cc0000;background:rgba(204,0,0,.08)}
   .brand-btn.active.huawei .bb-logo{color:#cc0000}
   .brand-btn.active.deye .bb-logo{color:var(--accent)}
+  .brand-btn.active.sungrow{border-color:#0077cc;background:rgba(0,119,204,.08)}
+  .brand-btn.active.sungrow .bb-logo{color:#0077cc}
 
   /* INPUT CARD SECTIONS */
   .input-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
@@ -738,6 +741,10 @@ const PRICE_DATA = {
       {kwp:18.6, panels:31, sp:null,  tp:54999, bat5sp:null,  bat10sp:null,  bat15sp:null,  bat5tp:61499, bat10tp:67999, bat15tp:74499, phase:"three"},
     ]
   },
+  sungrow: {
+    battery5kwh: 6500,  // same as Deye
+    get packages() { return PRICE_DATA.deye.packages; }  // same system prices as Deye
+  },
   huawei: {
     battery5kwh_first: 15000,
     battery5kwh_add:   9400,
@@ -789,11 +796,9 @@ const EV_RATIOS = [
 const RM = n => "RM " + Math.round(n).toLocaleString();
 
 function getBatteryCost(brand, batteries) {
-  // Returns the additional cost of batteries above ATAP base price
   if (batteries === 0) return 0;
-  if (brand === "deye") return batteries * PRICE_DATA.deye.battery5kwh;
-  // Huawei: 1st battery = 15000, 2nd+ = 9400 each
-  return PRICE_DATA.huawei.battery5kwh_first + Math.max(0, batteries - 1) * PRICE_DATA.huawei.battery5kwh_add;
+  if (brand === "huawei") return PRICE_DATA.huawei.battery5kwh_first + Math.max(0, batteries - 1) * PRICE_DATA.huawei.battery5kwh_add;
+  return batteries * (PRICE_DATA[brand]?.battery5kwh || 6500); // deye & sungrow: flat 6500
 }
 
 function getPackagePrice(brand, pkg, phase, batteries) {
@@ -811,7 +816,8 @@ function getPackagePrice(brand, pkg, phase, batteries) {
 
 function getBatteryLabel(brand) {
   if (brand === "huawei") return `1st battery: ${RM(PRICE_DATA.huawei.battery5kwh_first)} · 2nd+: ${RM(PRICE_DATA.huawei.battery5kwh_add)} per 5kWh`;
-  return `${RM(PRICE_DATA.deye.battery5kwh)} per 5kWh`;
+  const bat = PRICE_DATA[brand]?.battery5kwh || 6500;
+  return `${RM(bat)} per 5kWh`;
 }
 
 function pickPackage(avg, userPhase, brand) {
@@ -1038,6 +1044,10 @@ function renderCalculator(mount){
         <button type="button" class="brand-btn huawei" data-brand="huawei">
           <div class="bb-logo" style="color:#cc0000">HUAWEI</div>
           <div class="bb-sub">Battery: RM 15,000 1st · RM 9,400 add</div>
+        </button>
+        <button type="button" class="brand-btn sungrow" data-brand="sungrow">
+          <div class="bb-logo" style="color:#0077cc">SUNGROW</div>
+          <div class="bb-sub">Battery: RM 6,500 / 5kWh</div>
         </button>
       </div>
     </div>
