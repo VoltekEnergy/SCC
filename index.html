@@ -744,6 +744,7 @@ const PRICE_DATA = {
   },
   sungrow: {
     battery5kwh: 6500,
+    noBattery: true,   // Sungrow does not offer battery add-on
     packages: [
       // ── Sungrow: own prices from v2 file where available, else PV_System_proposal ──
       {kwp:4.2,  panels:7,  sp:13799, tp:null,  bat5sp:20299, bat10sp:26799, bat15sp:33299, bat5tp:null,  bat10tp:null,  bat15tp:null,  phase:"single"},
@@ -891,27 +892,38 @@ function pickPackage(avg, userPhase, brand) {
 }
 
 function computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phase) {
-  // bundledPrice = price direct from table (includes batteries)
-  const bundledPrice = getPackagePrice(brand, pkg, phase || "three", batteries);
-  const batCost = bundledPrice - (getPackagePrice(brand, pkg, phase || "three", 0));
-  const effPct = okapi.savePct + 10 * batteries;
-  const save = Math.round(a * effPct / 100);
+  // Battery cost: Sungrow has no battery; Huawei 1st=15000 +9400 each; Deye/Sungrow flat 6500
+  const noBat = PRICE_DATA[brand] && PRICE_DATA[brand].noBattery;
+  const effBat = noBat ? 0 : batteries;
+  const batCost = getBatteryCost(brand, effBat);
+
+  // Saving: capped at the bill (can't save more than you spend)
+  const effPct = (okapi.savePct || 0) + 10 * effBat;
+  const save = Math.min(Math.round(a * effPct / 100), Math.round(a));
   const billAfter = Math.max(Math.round(a - save), 0);
-  const installment = batteries > 0
-    ? Math.round((batCost + okapi.okapiPrice) * 1.54 / 120)
-    : okapi.okapiMonthly;
-  const totalPayment = bundledPrice - VOLTEK_REBATE;
+
+  // OKAPI installment: fallback okapiPrice → price if missing
+  const okapiBase = okapi.okapiPrice || atapPrice;
+  const installment = effBat > 0
+    ? Math.round((batCost + okapiBase) * 1.54 / 120)
+    : (okapi.okapiMonthly || Math.round(okapiBase * 1.54 / 120));
+
+  // Outright: system price + battery − Voltek rebate
+  const totalPayment = atapPrice - VOLTEK_REBATE + batCost;
   const invest = totalPayment - okapi.suria;
   const roiYears = save > 0 ? (invest / save / 12) : 0;
-  const cardCharge = Math.round(bundledPrice * 0.06);
+
+  // Credit card: 6% on (system + battery), deducted against Voltek rebate
+  const cardCharge = Math.round((atapPrice + batCost) * 0.06 * 100) / 100;
   const cardOverflow = cardCharge > VOLTEK_REBATE ? (cardCharge - VOLTEK_REBATE) : 0;
   const cardTotal = totalPayment + cardOverflow;
   const cardInvest = cardTotal - okapi.suria;
   const cardRoi = save > 0 ? (cardInvest / save / 12) : 0;
+
   return {
-    batteries, batCost, bundledPrice, save, billAfter, installment, totalPayment, invest, roiYears,
+    batteries: effBat, batCost, save, billAfter, installment, totalPayment, invest, roiYears,
     cardCharge, cardOverflow, cardTotal, cardInvest, cardRoi, cashflow: (save - installment),
-    atapPrice: getPackagePrice(brand, pkg, phase || "three", 0)
+    atapPrice, bundledPrice: atapPrice + batCost
   };
 }
 
@@ -927,14 +939,15 @@ function calcCardHtml(st, opts){
   opts = opts||{};
   const batWord = n => n+(n>1?" batteries":" battery");
   const brandLabel = st.brand ? st.brand.charAt(0).toUpperCase()+st.brand.slice(1) : "";
-  let sysLine = `${brandLabel} · ${st.pkg.kwp} kWp · ${st.pkg.panels} panels · ${st.phase==="single"?"Single":"Three"} Phase`;
+  const reqTag = st.requested ? " · Customer Requested" : "";
+  let sysLine = `${brandLabel} inverter · ${st.pkg.kwp} kWp · ${st.pkg.panels} panels · ${st.phase==="single"?"Single":"Three"} Phase${reqTag}`;
   let evLine = `EV: ${st.ev==="yes"?"Yes":"No"} · Day/Night: ${st.ratio||"50/50"}`;
   if(st.batteries) evLine += ` · ${batWord(st.batteries)} (+${RM(st.batCost)})`;
   else evLine += ` · no battery`;
   return `
     <div class="calc-reco">
       <div>
-        <div class="cr-k">${opts.heading||"SELECTED SYSTEM"}</div>
+        <div class="cr-k">${opts.heading||(st.requested?"CUSTOMER REQUESTED SYSTEM":"RECOMMENDED SYSTEM")}</div>
         <div class="cr-v">${sysLine}</div>
         <div class="cr-s">${evLine}</div>
         ${st.phaseNote?`<div class="cr-n">${st.phaseNote}</div>`:""}
@@ -956,11 +969,10 @@ function calcCardHtml(st, opts){
         <div class="plan-f">10 years installment · 10+ years Voltek warranty · No big upfront cost.</div>
       </div>
       <div class="plan prime">
-        <div class="plan-h">SuRIA PRIME · Outright (ATAP)</div>
-        <div class="plan-row"><span>System price (ATAP)</span><b>${RM(st.atapPrice)}</b></div>
-        ${st.batteries ? `<div class="plan-row"><span>Battery ${st.batteries*5}kWh (${st.batteries}×5kWh)</span><b>+ ${RM(st.batCost)}</b></div>` : ""}
-        ${st.batteries ? `<div class="plan-row"><span>Subtotal (incl. battery)</span><b>${RM(st.bundledPrice)}</b></div>` : ""}
+        <div class="plan-h">SuRIA PRIME · Outright Purchase</div>
+        <div class="plan-row"><span>System price</span><b>${RM(st.atapPrice)}</b></div>
         <div class="plan-row"><span>Voltek rebate</span><b>− ${RM(VOLTEK_REBATE)}</b></div>
+        ${st.batteries ? `<div class="plan-row"><span>Battery × ${st.batteries} (${st.batteries*5}kWh)</span><b>+ ${RM(st.batCost)}</b></div>` : ""}
         <div class="plan-row hl"><span>Total Payment</span><b>${RM(st.totalPayment)}</b></div>
         <div class="plan-row"><span>SuRIA rebate</span><b>− ${RM(st.okapi.suria)}</b></div>
         <div class="plan-row hl"><span>Total Investment</span><b>${RM(st.invest)}</b></div>
@@ -1242,6 +1254,22 @@ function renderCalculator(mount){
     brand = b.dataset.brand;
     brandBtns.forEach(x => x.classList.remove("active"));
     b.classList.add("active");
+    // Sungrow: no batteries
+    const noBat = PRICE_DATA[brand] && PRICE_DATA[brand].noBattery;
+    if (noBat) {
+      batteries = 0;
+      [...batGrid.querySelectorAll(".bat-btn")].forEach((btn, i) => {
+        btn.style.opacity = i === 0 ? "1" : "0.35";
+        btn.style.pointerEvents = i === 0 ? "" : "none";
+        if (i === 0) btn.classList.add("active");
+        else btn.classList.remove("active");
+      });
+      batHint.textContent = "Sungrow — batteries not available for this inverter.";
+    } else {
+      [...batGrid.querySelectorAll(".bat-btn")].forEach(btn => {
+        btn.style.opacity = ""; btn.style.pointerEvents = "";
+      });
+    }
     refreshGrids();
   });
 
@@ -1263,25 +1291,49 @@ function renderCalculator(mount){
   box.querySelector(".cb-go").onclick = () => {
     const a = avg();
     if (!a) { toast("Enter at least one monthly TNB bill", true); return; }
-    const activeKwp = selKwp || (() => {
-      const r = pickPackage(a, phase, brand);
-      return r.pkg.kwp;
-    })();
-    const picked = pickPackage(a, phase, brand);
-    const pkg = PRICE_DATA[brand].packages.find(p => p.kwp === activeKwp) || picked.pkg;
-    const phaseUsed = picked.phase;
-    const atapPrice = (phaseUsed === "single" && pkg.sp) ? pkg.sp : pkg.tp;
-    const okapi = OKAPI_DATA[pkg.kwp] || OKAPI_DATA[12.0];
+
+    // Disable battery for Sungrow
+    const noBat = PRICE_DATA[brand] && PRICE_DATA[brand].noBattery;
+    if (noBat) batteries = 0;
+
+    let pkg, phaseUsed, atapPrice, okapi, note = "", phaseNote = "", isRequested = false;
+
+    if (selKwp && selKwp >= 13.2) {
+      // ── Customer-requested larger system (upgrade grid) ──
+      isRequested = true;
+      pkg = PRICE_DATA[brand].packages.find(p => p.kwp === selKwp);
+      phaseUsed = "three";
+      atapPrice = pkg ? pkg.tp : 0;
+      // savePct scaled from 12 kWp base rate, proportional to requested size
+      const BASE_SAVE_PCT = OKAPI_DATA[12.0] ? OKAPI_DATA[12.0].savePct : 69.2;
+      const scaledSave = BASE_SAVE_PCT * selKwp / 12;
+      const okapiBase = atapPrice;
+      okapi = {
+        savePct: scaledSave,
+        okapiMonthly: 0,
+        okapiPrice: okapiBase,
+        suria: 3000
+      };
+      note = "Customer-requested " + selKwp + " kWp system (larger than the bill suggests).";
+    } else {
+      // ── Recommended system (from TNB bill) ──
+      const picked = pickPackage(a, phase, brand);
+      pkg = picked.pkg;
+      phaseUsed = picked.phase;
+      phaseNote = picked.phaseNote;
+      note = picked.note;
+      atapPrice = (phaseUsed === "single" && pkg.sp) ? pkg.sp : pkg.tp;
+      okapi = OKAPI_DATA[pkg.kwp] || OKAPI_DATA[12.0];
+    }
+
     const ratio = ratioSel.value;
     const e = computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phaseUsed);
     const st = {
       custName: (nameEl.value||"").trim(),
       custAddr: (addrEl.value||"").trim(),
-      a, brand, phase: phaseUsed,
-      phaseNote: picked.phaseNote,
+      a, brand, phase: phaseUsed, phaseNote,
       pkg, atapPrice, okapi,
-      note: picked.note,
-      ev, ratio,
+      note, ev, ratio, requested: isRequested,
       ...e
     };
     renderCalcResult(result, st);
@@ -1365,9 +1417,10 @@ function downloadComparePdf(st){
   }
 
   y = drawTable("SuRIA PRIME · Outright Purchase", y, [
-    {label:"System price (incl. battery)", val:o=>RM(o.e.bundledPrice||o.e.atapPrice)},
-    {label:"Voltek rebate",                val:()=>"- "+RM(VOLTEK_REBATE)},
-    {label:"Total Payment",                val:o=>RM(o.e.totalPayment), bold:true},
+    {label:"System price",   val:()=>RM(st.atapPrice)},
+    {label:"Voltek rebate",   val:()=>"- "+RM(VOLTEK_REBATE)},
+    {label:"Battery cost",    val:o=>o.n? "+ "+RM(o.e.batCost):"—"},
+    {label:"Total Payment",   val:o=>RM(o.e.totalPayment), bold:true},
     {label:"SuRIA rebate",        val:()=>"- "+RM(st.okapi.suria)},
     {label:"Total Investment", val:o=>RM(o.e.invest), bold:true},
     {label:"Payback (ROI)",    val:o=>o.e.roiYears.toFixed(1)+" yrs", bold:true},
@@ -1472,11 +1525,10 @@ function drawEstimatePage(doc, st, opts){
   y+=3;
 
   const brandLbl = st.brand ? " ("+st.brand.charAt(0).toUpperCase()+st.brand.slice(1)+")" : "";
-  section("PLAN B — SuRIA PRIME (OUTRIGHT ATAP"+brandLbl+")");
-  line("System price (ATAP)", RM(st.atapPrice));
-  if(st.batteries) line("Battery "+st.batteries*5+"kWh ("+st.batteries+"×5kWh)", "+ "+RM(st.batCost));
-  if(st.batteries) line("Subtotal (incl. battery)", RM(st.bundledPrice));
+  section("PLAN B — SuRIA PRIME"+brandLbl+" · Outright Purchase");
+  line("System price", RM(st.atapPrice));
   line("Voltek rebate", "- "+RM(VOLTEK_REBATE));
+  if(st.batteries) line("Battery × "+st.batteries+" ("+st.batteries*5+"kWh)", "+ "+RM(st.batCost));
   line("Total Payment", RM(st.totalPayment), true);
   line("SuRIA rebate", "- "+RM(st.okapi.suria));
   line("Total Investment", RM(st.invest), true);
