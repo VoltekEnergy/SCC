@@ -997,7 +997,7 @@ function calcCardHtml(st, opts){
   opts = opts||{};
   const batWord = n => n+(n>1?" batteries":" battery");
   const brandLabel = st.brand ? st.brand.charAt(0).toUpperCase()+st.brand.slice(1) : "";
-  const reqTag = st.requested ? " · Customer Requested" : "";
+  const reqTag = st.requested ? " · Customer Selected" : "";
   let sysLine = `${brandLabel} inverter · ${st.pkg.kwp} kWp · ${st.pkg.panels} panels · ${st.phase==="single"?"Single":"Three"} Phase${reqTag}`;
   let evLine = `EV: ${st.ev==="yes"?"Yes":"No"} · Day/Night: ${st.ratio||"50/50"}`;
   if(st.batteries) evLine += ` · ${batWord(st.batteries)} (+${RM(st.batCost)})`;
@@ -1005,7 +1005,7 @@ function calcCardHtml(st, opts){
   return `
     <div class="calc-reco">
       <div>
-        <div class="cr-k">${opts.heading||(st.requested?"CUSTOMER REQUESTED SYSTEM":"RECOMMENDED SYSTEM")}</div>
+        <div class="cr-k">${opts.heading||(st.requested?"CUSTOMER SELECTED SYSTEM":"RECOMMENDED SYSTEM")}</div>
         <div class="cr-v">${sysLine}</div>
         <div class="cr-s">${evLine}</div>
         ${st.phaseNote?`<div class="cr-n">${st.phaseNote}</div>`:""}
@@ -1155,10 +1155,10 @@ function renderCalculator(mount){
     <!-- STEP 5: System size -->
     <div class="input-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div class="input-card-title" style="margin-bottom:0">☀️ Upgrade System Size <span style="font-weight:400;color:var(--muted)">(optional)</span></div>
-        <button type="button" class="cb-pkg-reset btn ghost" style="padding:5px 10px;font-size:11px;display:none">↩ Reset to standard</button>
+        <div class="input-card-title" style="margin-bottom:0">☀️ System Size <span style="font-weight:400;color:var(--muted)">(optional override)</span></div>
+        <button type="button" class="cb-pkg-reset btn ghost" style="padding:5px 10px;font-size:11px;display:none">↩ Reset to recommended</button>
       </div>
-      <div class="calc-hint" style="margin-bottom:10px;margin-top:-4px">For customers requesting a larger system. The standard size is already selected from the TNB bill.</div>
+      <div class="calc-hint" style="margin-bottom:10px;margin-top:-4px">Pick any size, regardless of the bill recommendation. The recommended size is already selected from the TNB bill.</div>
       <div class="pkg-grid cb-pkggrid"></div>
       <div class="pkg-phase-note cb-phase-note"></div>
     </div>
@@ -1251,15 +1251,16 @@ function renderCalculator(mount){
   };
 
   function buildPkgGrid(autoKwp) {
-    const list = PRICE_DATA[brand].packages.filter(p => p.kwp >= 13.2);
+    const list = PRICE_DATA[brand].packages; // full range — any size can be picked
     const ph = phase;
     pkgGrid.innerHTML = "";
     list.forEach(pkg => {
       const isThreeOnly = pkg.phase === "three";
-      const price = pkg.tp; // upgrade grid always shows three-phase price (all 13.2+ are three-phase)
+      // Sizes ≥13.2 kWp are three-phase only in the pricelist; below that, respect chosen phase
+      const price = (pkg.kwp < 13.2 && ph === "single" && pkg.sp) ? pkg.sp : pkg.tp;
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "pkg-btn";
+      btn.className = "pkg-btn" + (isThreeOnly ? " three-only" : "");
       const isActive = selKwp !== null ? pkg.kwp === selKwp : pkg.kwp === autoKwp;
       if (isActive) btn.classList.add("active");
       btn.innerHTML = `<span class="pk-kwp">${pkg.kwp} kWp</span>
@@ -1274,9 +1275,8 @@ function renderCalculator(mount){
       };
       pkgGrid.appendChild(btn);
     });
-    // Phase note for three-only
-    const hasDashed = list.some(p=>p.phase==="three" && ph==="single");
-    phNote.textContent = "";
+    const hasDashed = list.some(p=>p.phase==="three" && ph==="single" && p.kwp<13.2 === false);
+    phNote.textContent = list.some(p=>p.phase==="three") ? "Dashed border = three phase only." : "";
     pkgReset.style.display = selKwp !== null ? "inline-flex" : "none";
   }
 
@@ -1409,13 +1409,13 @@ function renderCalculator(mount){
 
     let pkg, phaseUsed, atapPrice, okapi, note = "", phaseNote = "", isRequested = false;
 
-    if (selKwp && selKwp >= 13.2) {
-      // ── Customer-requested larger system (upgrade grid) ──
+    if (selKwp !== null && selKwp >= 13.2) {
+      // ── Customer-selected larger system (≥13.2 kWp, no OKAPI data available) ──
       isRequested = true;
       pkg = PRICE_DATA[brand].packages.find(p => p.kwp === selKwp);
       phaseUsed = "three";
       atapPrice = pkg ? pkg.tp : 0;
-      // savePct scaled from 12 kWp base rate, proportional to requested size
+      // savePct scaled from 12 kWp base rate, proportional to selected size
       const BASE_SAVE_PCT = OKAPI_DATA[12.0] ? OKAPI_DATA[12.0].savePct : 69.2;
       const scaledSave = BASE_SAVE_PCT * selKwp / 12;
       const okapiBase = atapPrice;
@@ -1425,7 +1425,16 @@ function renderCalculator(mount){
         okapiPrice: okapiBase,
         suria: 3000
       };
-      note = "Customer-requested " + selKwp + " kWp system (larger than the bill suggests).";
+      note = "Customer-selected " + selKwp + " kWp system (larger than the bill suggests).";
+    } else if (selKwp !== null) {
+      // ── Customer-selected system within normal range (has real OKAPI data) ──
+      isRequested = true;
+      pkg = PRICE_DATA[brand].packages.find(p => p.kwp === selKwp);
+      phaseUsed = (phase === "single" && pkg && pkg.sp) ? "single" : (phase === "auto" ? (pkg && pkg.phase === "three" ? "three" : "single") : phase);
+      if (phaseUsed === "single" && !(pkg && pkg.sp)) phaseUsed = "three";
+      atapPrice = pkg ? ((phaseUsed === "single" && pkg.sp) ? pkg.sp : pkg.tp) : 0;
+      okapi = OKAPI_DATA[selKwp] || OKAPI_DATA[12.0];
+      note = "Customer-selected " + selKwp + " kWp system.";
     } else {
       // ── Recommended system (from TNB bill) ──
       const picked = pickPackage(a, phase, brand);
