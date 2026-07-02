@@ -1023,7 +1023,7 @@ function calcCardHtml(st, opts){
         <div class="plan-row"><span>Monthly installment${st.batteries?` (incl. ${batWord(st.batteries)})`:""}</span><b>${RM(st.installment)}</b></div>
         <div class="plan-row"><span>Monthly saving</span><b>${RM(st.save)}</b></div>
         <div class="plan-row hl"><span>Positive cashflow / month</span><b>${st.cashflow>=0?"+":""}${RM(st.cashflow)}</b></div>
-        <div class="plan-f">10 years installment · 10+ years Voltek warranty · No big upfront cost.</div>
+        <div class="plan-f">10 years installment · 10+ years warranty from manufacturer · No big upfront cost.</div>
       </div>
       <div class="plan prime">
         <div class="plan-h">SuRIA PRIME · Outright Purchase</div>
@@ -1039,7 +1039,7 @@ function calcCardHtml(st, opts){
         <div class="plan-row"><span>Card payment total</span><b>${RM(st.cardTotal)}</b></div>
         <div class="plan-row"><span>Total investment (card)</span><b>${RM(st.cardInvest)}</b></div>
         <div class="plan-row"><span>Payback (card)</span><b>${st.cardRoi.toFixed(1)} years</b></div>
-        <div class="plan-f">Own it fully · 10+ years Voltek warranty · ~25-year panel lifespan.</div>
+        <div class="plan-f">Own it fully · 10+ years warranty from manufacturer · ~25-year panel lifespan.</div>
       </div>
     </div>`;
 }
@@ -1632,7 +1632,7 @@ function drawEstimatePage(doc, st, opts){
   line("Monthly saving", RM(st.save));
   line("Positive cashflow / month", (st.cashflow>=0?"+":"")+RM(st.cashflow), true);
   line("Installment tenure", "10 years");
-  line("Warranty", "10+ years Voltek warranty");
+  line("Warranty", "10+ years warranty from manufacturer");
   y+=3;
 
   const brandLbl = st.brand ? " ("+st.brand.charAt(0).toUpperCase()+st.brand.slice(1)+")" : "";
@@ -1645,7 +1645,7 @@ function drawEstimatePage(doc, st, opts){
   line("SuRIA rebate", "- "+RM(st.okapi.suria));
   line("Total Investment", RM(st.invest), true);
   line("Payback period (ROI)", st.roiYears.toFixed(1)+" years", true);
-  line("Warranty", "10+ years Voltek warranty");
+  line("Warranty", "10+ years warranty from manufacturer");
   y+=2;
   doc.setFontSize(10); doc.setTextColor(...orange); doc.setFont(undefined,"bold");
   doc.text("Credit Card easy payment (6% charge by deduct Voltek rebate)", M, y); y+=6;
