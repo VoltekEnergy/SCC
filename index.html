@@ -146,6 +146,10 @@
     padding:9px 14px;border-radius:10px;font-size:13px;font-weight:600;flex:1;min-width:90px;
   }
   .seg button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .cb-meterseg button{padding:12px 14px;font-size:13px}
+  .cb-meterseg button b{font-weight:800}
+  .cb-meterseg button.active b{color:#fff}
+  .cb-meterseg button:not(.active) b{color:var(--accent)}
 
   /* TOAST */
   .toast{
@@ -937,7 +941,8 @@ function pickPackage(avg, userPhase, brand) {
   return { pkg, atapPrice, okapi, note, phaseNote, phase: assumedPhase };
 }
 
-function computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phase) {
+function computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phase, meterCost) {
+  meterCost = meterCost || 0;
   // Battery cost: Sungrow has no battery; Huawei 1st=15000 +9400 each; Deye/Sungrow flat 6500
   const noBat = PRICE_DATA[brand] && PRICE_DATA[brand].noBattery;
   const effBat = noBat ? 0 : batteries;
@@ -948,28 +953,28 @@ function computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phase) {
   const save = Math.min(Math.round(a * effPct / 100), Math.round(a));
   const billAfter = Math.max(Math.round(a - save), 0);
 
-  // OKAPI installment: fallback okapiPrice → price if missing
-  const okapiBase = okapi.okapiPrice || atapPrice;
-  const installment = effBat > 0
-    ? Math.round((batCost + okapiBase) * 1.54 / 120)
+  // OKAPI installment: fallback okapiPrice → atapPrice if missing; always include meter cost
+  const okapiBase = (okapi.okapiPrice || atapPrice);
+  const installment = (effBat > 0 || meterCost > 0)
+    ? Math.round((batCost + okapiBase + meterCost) * 1.54 / 120)
     : (okapi.okapiMonthly || Math.round(okapiBase * 1.54 / 120));
 
-  // Outright: system price + battery − Voltek rebate
-  const totalPayment = atapPrice - VOLTEK_REBATE + batCost;
+  // Outright: system price + battery + meter relocation − Voltek rebate
+  const totalPayment = atapPrice - VOLTEK_REBATE + batCost + meterCost;
   const invest = totalPayment - okapi.suria;
   const roiYears = save > 0 ? (invest / save / 12) : 0;
 
-  // Credit card: 6% on (system + battery), deducted against Voltek rebate
-  const cardCharge = Math.round((atapPrice + batCost) * 0.06 * 100) / 100;
+  // Credit card: 6% on (system + battery + meter), deducted against Voltek rebate
+  const cardCharge = Math.round((atapPrice + batCost + meterCost) * 0.06 * 100) / 100;
   const cardOverflow = cardCharge > VOLTEK_REBATE ? (cardCharge - VOLTEK_REBATE) : 0;
   const cardTotal = totalPayment + cardOverflow;
   const cardInvest = cardTotal - okapi.suria;
   const cardRoi = save > 0 ? (cardInvest / save / 12) : 0;
 
   return {
-    batteries: effBat, batCost, save, billAfter, installment, totalPayment, invest, roiYears,
+    batteries: effBat, batCost, meterCost, save, billAfter, installment, totalPayment, invest, roiYears,
     cardCharge, cardOverflow, cardTotal, cardInvest, cardRoi, cashflow: (save - installment),
-    atapPrice, bundledPrice: atapPrice + batCost
+    atapPrice, bundledPrice: atapPrice + batCost + meterCost
   };
 }
 
@@ -981,6 +986,11 @@ function el(tag, cls, txt){
   return e;
 }
 
+function meterLabel(type){
+  if (type === "wall") return "Wall-mounted (Beside Main Door)";
+  if (type === "gate") return "Gate Area";
+  return "Others (Manual)";
+}
 function calcCardHtml(st, opts){
   opts = opts||{};
   const batWord = n => n+(n>1?" batteries":" battery");
@@ -1009,7 +1019,7 @@ function calcCardHtml(st, opts){
     <div class="plan-grid">
       <div class="plan rakyat">
         <div class="plan-h">SuRIA RAKYAT · OKAPI Installment</div>
-        <div class="plan-row"><span>Monthly installment${st.batteries?` (incl. ${batWord(st.batteries)})`:""}</span><b>${RM(st.installment)}</b></div>
+        <div class="plan-row"><span>Monthly installment${st.batteries?` (incl. ${batWord(st.batteries)})`:""}${st.meterCost?" + meter":""}</span><b>${RM(st.installment)}</b></div>
         <div class="plan-row"><span>Monthly saving</span><b>${RM(st.save)}</b></div>
         <div class="plan-row hl"><span>Positive cashflow / month</span><b>${st.cashflow>=0?"+":""}${RM(st.cashflow)}</b></div>
         <div class="plan-f">10 years installment · 10+ years Voltek warranty · No big upfront cost.</div>
@@ -1019,6 +1029,7 @@ function calcCardHtml(st, opts){
         <div class="plan-row"><span>System price</span><b>${RM(st.atapPrice)}</b></div>
         <div class="plan-row"><span>Voltek rebate</span><b>− ${RM(VOLTEK_REBATE)}</b></div>
         ${st.batteries ? `<div class="plan-row"><span>Battery × ${st.batteries} (${st.batteries*5}kWh)</span><b>+ ${RM(st.batCost)}</b></div>` : ""}
+        ${st.meterCost ? `<div class="plan-row"><span>TNB meter relocation (${meterLabel(st.meterType)})</span><b>+ ${RM(st.meterCost)}</b></div>` : ""}
         <div class="plan-row hl"><span>Total Payment</span><b>${RM(st.totalPayment)}</b></div>
         <div class="plan-row"><span>SuRIA rebate</span><b>− ${RM(st.okapi.suria)}</b></div>
         <div class="plan-row hl"><span>Total Investment</span><b>${RM(st.invest)}</b></div>
@@ -1053,7 +1064,7 @@ function renderBatteryCompare(host, st){
   host.innerHTML = `<div class="cmp-title">Full comparison · ${st.pkg.kwp} kWp (${st.brand.charAt(0).toUpperCase()+st.brand.slice(1)}) — 0, 1 and 2 batteries</div>
     <div class="cmp-reco-top">⭐ Recommended: the <b>no-battery</b> system — lowest upfront cost and fastest payback.</div>`;
   [0,1,2].forEach(n=>{
-    const e = computeEstimate(st.a, st.brand, st.pkg, st.atapPrice, st.okapi, n, st.phase);
+    const e = computeEstimate(st.a, st.brand, st.pkg, st.atapPrice, st.okapi, n, st.phase, st.meterCost);
     const cst = {...st, ...e, batteries:n};
     const card = el("div","calc-card cmp-card"+(n===0?" reco":""));
     const label = n===0 ? "Option A · No battery ⭐ Recommended" : `Option ${n===1?"B":"C"} · ${n} batter${n>1?"ies":"y"}`;
@@ -1172,6 +1183,28 @@ function renderCalculator(mount){
       </div>
     </div>
 
+    <!-- STEP 8: TNB Meter Location -->
+    <div class="input-card">
+      <div class="input-card-title">📍 TNB Meter Location</div>
+      <div class="calc-hint" style="margin-bottom:10px;margin-top:-4px">Affects cabling/installation cost, added to the proposal.</div>
+      <div class="seg cb-meterseg" style="flex-direction:column;gap:8px">
+        <button type="button" data-meter="wall" class="active" style="width:100%;text-align:left;display:flex;justify-content:space-between">
+          <span>Wall-mounted (Beside Main Door)</span><b>RM 4,500</b>
+        </button>
+        <button type="button" data-meter="gate" style="width:100%;text-align:left;display:flex;justify-content:space-between">
+          <span>Gate Area</span><b>RM 6,500</b>
+        </button>
+        <button type="button" data-meter="other" style="width:100%;text-align:left;display:flex;justify-content:space-between">
+          <span>Others (Manual Input)</span><b>—</b>
+        </button>
+      </div>
+      <div class="field cb-meter-manual" style="margin-top:12px;display:none">
+        <label>Manual meter relocation cost</label>
+        <div class="bill-input-wrap"><span>RM</span>
+          <input type="number" min="0" inputmode="decimal" class="cb-meter-cost" placeholder="e.g. 5000"/></div>
+      </div>
+    </div>
+
     <button type="button" class="btn block cb-go" style="font-size:16px;padding:15px">
       Calculate Solar Savings →
     </button>
@@ -1185,6 +1218,8 @@ function renderCalculator(mount){
   let ev    = "no";
   let selKwp = null;   // null = auto from bill
   let batteries = 0;
+  let meterType = "wall";
+  let meterCost = 4500;
 
   const bills     = [...box.querySelectorAll(".cb-bill")];
   const nameEl    = box.querySelector(".cb-name");
@@ -1201,6 +1236,9 @@ function renderCalculator(mount){
   const batGrid   = box.querySelector(".cb-batgrid");
   const batHint   = box.querySelector(".cb-bat-hint");
   const result    = box.querySelector(".cb-result");
+  const meterBtns = [...box.querySelectorAll(".cb-meterseg button")];
+  const meterManual = box.querySelector(".cb-meter-manual");
+  const meterCostEl = box.querySelector(".cb-meter-cost");
 
   const avg = () => {
     const v = bills.map(i=>parseFloat(i.value)).filter(n=>!isNaN(n)&&n>0);
@@ -1328,6 +1366,18 @@ function renderCalculator(mount){
     evBtns.forEach(x => x.classList.toggle("active", x === b));
   });
 
+  meterBtns.forEach(b => b.onclick = () => {
+    meterType = b.dataset.meter;
+    meterBtns.forEach(x => x.classList.toggle("active", x === b));
+    if (meterType === "wall") { meterCost = 4500; meterManual.style.display = "none"; }
+    else if (meterType === "gate") { meterCost = 6500; meterManual.style.display = "none"; }
+    else { meterCost = parseFloat(meterCostEl.value) || 0; meterManual.style.display = "block"; }
+  });
+
+  meterCostEl.oninput = () => {
+    if (meterType === "other") meterCost = parseFloat(meterCostEl.value) || 0;
+  };
+
   // ── reset button ──────────────────────────────────────────────────────────
   pkgReset.onclick = () => {
     selKwp = null;
@@ -1341,6 +1391,11 @@ function renderCalculator(mount){
   box.querySelector(".cb-go").onclick = () => {
     const a = avg();
     if (!a) { toast("Enter at least one monthly TNB bill", true); return; }
+    if (meterType === "other" && (!meterCost || meterCost <= 0)) {
+      toast("Enter the manual TNB meter relocation cost", true);
+      meterCostEl.focus();
+      return;
+    }
 
     // Disable battery for Sungrow
     const noBat = PRICE_DATA[brand] && PRICE_DATA[brand].noBattery;
@@ -1377,13 +1432,14 @@ function renderCalculator(mount){
     }
 
     const ratio = ratioSel.value;
-    const e = computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phaseUsed);
+    const e = computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phaseUsed, meterCost);
     const st = {
       custName: (nameEl.value||"").trim(),
       custAddr: (addrEl.value||"").trim(),
       a, brand, phase: phaseUsed, phaseNote,
       pkg, atapPrice, okapi,
       note, ev, ratio, requested: isRequested,
+      meterType, meterCost,
       ...e
     };
     renderCalcResult(result, st);
@@ -1426,7 +1482,7 @@ function downloadComparePdf(st){
   if(st.custAddr){ const al=doc.splitTextToSize("Address: "+st.custAddr, W-2*M); doc.text(al,M,y); y+=5*al.length; }
   doc.text("Average TNB bill: "+RM(st.a)+" / month   ·   System: "+st.pkg.kwp+" kWp   ·   "+(st.phase==="single"?"Single":"Three")+" phase", M, y); y+=8;
 
-  const opts=[0,1,2].map(n=>({n, e:computeEstimate(st.a, st.brand, st.pkg, st.atapPrice, st.okapi, n, st.phase)}));
+  const opts=[0,1,2].map(n=>({n, e:computeEstimate(st.a, st.brand, st.pkg, st.atapPrice, st.okapi, n, st.phase, st.meterCost)}));
   const recoCol=0;
   const labelW=64, colW=(W-2*M-labelW)/3;
   const colX=i=> M+labelW+i*colW;
@@ -1470,6 +1526,7 @@ function downloadComparePdf(st){
     {label:"System price",   val:()=>RM(st.atapPrice)},
     {label:"Voltek rebate",   val:()=>"- "+RM(VOLTEK_REBATE)},
     {label:"Battery cost",    val:o=>o.n? "+ "+RM(o.e.batCost):"—"},
+    {label:"Meter relocation", val:()=>st.meterCost? "+ "+RM(st.meterCost) : "—"},
     {label:"Total Payment",   val:o=>RM(o.e.totalPayment), bold:true},
     {label:"SuRIA rebate",        val:()=>"- "+RM(st.okapi.suria)},
     {label:"Total Investment", val:o=>RM(o.e.invest), bold:true},
@@ -1547,6 +1604,7 @@ function drawEstimatePage(doc, st, opts){
   line("Phase type", (st.phase==="single"?"Single":"Three")+" phase"+(st.phaseNote?" (assumed)":""));
   line("EV user", st.ev==="yes"?"Yes":"No");
   line("Day/Night ratio", st.ratio);
+  line("TNB meter location", meterLabel(st.meterType));
   y+=2;
 
   section("RECOMMENDED SYSTEM");
@@ -1579,6 +1637,7 @@ function drawEstimatePage(doc, st, opts){
   line("System price", RM(st.atapPrice));
   line("Voltek rebate", "- "+RM(VOLTEK_REBATE));
   if(st.batteries) line("Battery × "+st.batteries+" ("+st.batteries*5+"kWh)", "+ "+RM(st.batCost));
+  if(st.meterCost) line("TNB meter relocation ("+meterLabel(st.meterType)+")", "+ "+RM(st.meterCost));
   line("Total Payment", RM(st.totalPayment), true);
   line("SuRIA rebate", "- "+RM(st.okapi.suria));
   line("Total Investment", RM(st.invest), true);
