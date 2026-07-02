@@ -988,6 +988,7 @@ function el(tag, cls, txt){
 }
 
 function meterLabel(type){
+  if (type === "none") return "None";
   if (type === "wall") return "Meter Phase Upgrade — Wall-mounted (Beside Main Door)";
   if (type === "gate") return "Meter Phase Upgrade — Gate Area";
   return "Meter Phase Upgrade — Others (Manual)";
@@ -1189,7 +1190,10 @@ function renderCalculator(mount){
       <div class="input-card-title">📍 TNB Meter Phase Upgrade</div>
       <div class="calc-hint" style="margin-bottom:10px;margin-top:-4px">Cost to upgrade the TNB meter from Single Phase to Three Phase, based on its location. Added to the proposal.</div>
       <div class="seg cb-meterseg" style="flex-direction:column;gap:8px">
-        <button type="button" data-meter="wall" class="active" style="width:100%;text-align:left;display:flex;justify-content:space-between">
+        <button type="button" data-meter="none" class="active" style="width:100%;text-align:left;display:flex;justify-content:space-between">
+          <span>None</span><b>—</b>
+        </button>
+        <button type="button" data-meter="wall" style="width:100%;text-align:left;display:flex;justify-content:space-between">
           <span>Wall-mounted (Beside Main Door)</span><b>RM 4,500</b>
         </button>
         <button type="button" data-meter="gate" style="width:100%;text-align:left;display:flex;justify-content:space-between">
@@ -1219,8 +1223,8 @@ function renderCalculator(mount){
   let ev    = "no";
   let selKwp = null;   // null = auto from bill
   let batteries = 0;
-  let meterType = "wall";
-  let meterCost = 4500;
+  let meterType = "none";
+  let meterCost = 0;
 
   const bills     = [...box.querySelectorAll(".cb-bill")];
   const nameEl    = box.querySelector(".cb-name");
@@ -1370,7 +1374,8 @@ function renderCalculator(mount){
   meterBtns.forEach(b => b.onclick = () => {
     meterType = b.dataset.meter;
     meterBtns.forEach(x => x.classList.toggle("active", x === b));
-    if (meterType === "wall") { meterCost = 4500; meterManual.style.display = "none"; }
+    if (meterType === "none") { meterCost = 0; meterManual.style.display = "none"; }
+    else if (meterType === "wall") { meterCost = 4500; meterManual.style.display = "none"; }
     else if (meterType === "gate") { meterCost = 6500; meterManual.style.display = "none"; }
     else { meterCost = parseFloat(meterCostEl.value) || 0; meterManual.style.display = "block"; }
   });
@@ -1607,7 +1612,7 @@ function drawEstimatePage(doc, st, opts){
   line("Phase type", (st.phase==="single"?"Single":"Three")+" phase"+(st.phaseNote?" (assumed)":""));
   line("EV user", st.ev==="yes"?"Yes":"No");
   line("Day/Night ratio", st.ratio);
-  line("TNB meter phase upgrade", (st.meterType==="wall"?"Wall-mounted":st.meterType==="gate"?"Gate Area":"Manual")+" — "+RM(st.meterCost));
+  line("TNB meter phase upgrade", st.meterType==="none" ? "None" : (st.meterType==="wall"?"Wall-mounted":st.meterType==="gate"?"Gate Area":"Manual")+" — "+RM(st.meterCost));
   y+=2;
 
   section("RECOMMENDED SYSTEM");
