@@ -953,10 +953,11 @@ function computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phase, mete
   const save = Math.min(Math.round(a * effPct / 100), Math.round(a));
   const billAfter = Math.max(Math.round(a - save), 0);
 
-  // OKAPI installment: fallback okapiPrice → atapPrice if missing; always include meter cost
+  // OKAPI installment: fallback okapiPrice → atapPrice if missing.
+  // Meter phase upgrade cost is NOT part of the OKAPI installment — it only applies to outright (Plan B).
   const okapiBase = (okapi.okapiPrice || atapPrice);
-  const installment = (effBat > 0 || meterCost > 0)
-    ? Math.round((batCost + okapiBase + meterCost) * 1.54 / 120)
+  const installment = effBat > 0
+    ? Math.round((batCost + okapiBase) * 1.54 / 120)
     : (okapi.okapiMonthly || Math.round(okapiBase * 1.54 / 120));
 
   // Outright: system price + battery + meter relocation − Voltek rebate
@@ -1019,7 +1020,7 @@ function calcCardHtml(st, opts){
     <div class="plan-grid">
       <div class="plan rakyat">
         <div class="plan-h">SuRIA RAKYAT · OKAPI Installment</div>
-        <div class="plan-row"><span>Monthly installment${st.batteries?` (incl. ${batWord(st.batteries)})`:""}${st.meterCost?" + meter":""}</span><b>${RM(st.installment)}</b></div>
+        <div class="plan-row"><span>Monthly installment${st.batteries?` (incl. ${batWord(st.batteries)})`:""}</span><b>${RM(st.installment)}</b></div>
         <div class="plan-row"><span>Monthly saving</span><b>${RM(st.save)}</b></div>
         <div class="plan-row hl"><span>Positive cashflow / month</span><b>${st.cashflow>=0?"+":""}${RM(st.cashflow)}</b></div>
         <div class="plan-f">10 years installment · 10+ years Voltek warranty · No big upfront cost.</div>
