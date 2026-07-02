@@ -987,9 +987,9 @@ function el(tag, cls, txt){
 }
 
 function meterLabel(type){
-  if (type === "wall") return "Wall-mounted (Beside Main Door)";
-  if (type === "gate") return "Gate Area";
-  return "Others (Manual)";
+  if (type === "wall") return "Meter Phase Upgrade — Wall-mounted (Beside Main Door)";
+  if (type === "gate") return "Meter Phase Upgrade — Gate Area";
+  return "Meter Phase Upgrade — Others (Manual)";
 }
 function calcCardHtml(st, opts){
   opts = opts||{};
@@ -1029,7 +1029,7 @@ function calcCardHtml(st, opts){
         <div class="plan-row"><span>System price</span><b>${RM(st.atapPrice)}</b></div>
         <div class="plan-row"><span>Voltek rebate</span><b>− ${RM(VOLTEK_REBATE)}</b></div>
         ${st.batteries ? `<div class="plan-row"><span>Battery × ${st.batteries} (${st.batteries*5}kWh)</span><b>+ ${RM(st.batCost)}</b></div>` : ""}
-        ${st.meterCost ? `<div class="plan-row"><span>TNB meter relocation (${meterLabel(st.meterType)})</span><b>+ ${RM(st.meterCost)}</b></div>` : ""}
+        ${st.meterCost ? `<div class="plan-row"><span>Meter phase upgrade* (${st.meterType==="wall"?"Wall-mounted":st.meterType==="gate"?"Gate Area":"Manual"})</span><b>+ ${RM(st.meterCost)}</b></div>` : ""}
         <div class="plan-row hl"><span>Total Payment</span><b>${RM(st.totalPayment)}</b></div>
         <div class="plan-row"><span>SuRIA rebate</span><b>− ${RM(st.okapi.suria)}</b></div>
         <div class="plan-row hl"><span>Total Investment</span><b>${RM(st.invest)}</b></div>
@@ -1052,7 +1052,7 @@ function renderCalcResult(result, st){
         <button type="button" class="btn cb-pdf">⬇ Download as PDF</button>
       </div>
       <div class="cb-compare-out"></div>
-      <div class="calc-disclaimer">* Estimates based on Voltek package data. Actual results vary by roof size, orientation &amp; shading. Rebates subject to programme availability.</div>
+      <div class="calc-disclaimer">* Estimates based on Voltek package data. Actual results vary by roof size, orientation &amp; shading. Rebates subject to programme availability.${st.meterCost?" Final meter phase upgrade price is subject to Terms & Conditions based on TNB rules and regulations.":""}</div>
     </div>`;
   result.querySelector(".cb-pdf").onclick = ()=> downloadCalcPdf(st);
   result.querySelector(".cb-compare").onclick = ()=> renderBatteryCompare(result.querySelector(".cb-compare-out"), st);
@@ -1185,8 +1185,8 @@ function renderCalculator(mount){
 
     <!-- STEP 8: TNB Meter Location -->
     <div class="input-card">
-      <div class="input-card-title">📍 TNB Meter Location</div>
-      <div class="calc-hint" style="margin-bottom:10px;margin-top:-4px">Affects cabling/installation cost, added to the proposal.</div>
+      <div class="input-card-title">📍 TNB Meter Phase Upgrade</div>
+      <div class="calc-hint" style="margin-bottom:10px;margin-top:-4px">Cost to upgrade the TNB meter from Single Phase to Three Phase, based on its location. Added to the proposal.</div>
       <div class="seg cb-meterseg" style="flex-direction:column;gap:8px">
         <button type="button" data-meter="wall" class="active" style="width:100%;text-align:left;display:flex;justify-content:space-between">
           <span>Wall-mounted (Beside Main Door)</span><b>RM 4,500</b>
@@ -1199,7 +1199,7 @@ function renderCalculator(mount){
         </button>
       </div>
       <div class="field cb-meter-manual" style="margin-top:12px;display:none">
-        <label>Manual meter relocation cost</label>
+        <label>Manual phase upgrade cost</label>
         <div class="bill-input-wrap"><span>RM</span>
           <input type="number" min="0" inputmode="decimal" class="cb-meter-cost" placeholder="e.g. 5000"/></div>
       </div>
@@ -1392,7 +1392,7 @@ function renderCalculator(mount){
     const a = avg();
     if (!a) { toast("Enter at least one monthly TNB bill", true); return; }
     if (meterType === "other" && (!meterCost || meterCost <= 0)) {
-      toast("Enter the manual TNB meter relocation cost", true);
+      toast("Enter the manual TNB meter phase upgrade cost", true);
       meterCostEl.focus();
       return;
     }
@@ -1526,7 +1526,7 @@ function downloadComparePdf(st){
     {label:"System price",   val:()=>RM(st.atapPrice)},
     {label:"Voltek rebate",   val:()=>"- "+RM(VOLTEK_REBATE)},
     {label:"Battery cost",    val:o=>o.n? "+ "+RM(o.e.batCost):"—"},
-    {label:"Meter relocation", val:()=>st.meterCost? "+ "+RM(st.meterCost) : "—"},
+    {label:"Meter phase upgrade*", val:()=>st.meterCost? "+ "+RM(st.meterCost) : "—"},
     {label:"Total Payment",   val:o=>RM(o.e.totalPayment), bold:true},
     {label:"SuRIA rebate",        val:()=>"- "+RM(st.okapi.suria)},
     {label:"Total Investment", val:o=>RM(o.e.invest), bold:true},
@@ -1553,7 +1553,9 @@ function downloadComparePdf(st){
   doc.setTextColor(...muted); doc.setFontSize(8.5); doc.setFont(undefined,"normal");
   doc.text("Lowest upfront cost and fastest payback. Add batteries only if more night-time backup is needed.", M+4, y+9.5);
   doc.setFontSize(8); doc.setTextColor(...muted);
-  doc.text("* Estimates based on Voltek package data. Actual results vary by roof size, orientation & shading. Rebates subject to programme availability.", M, 290, {maxWidth:W-2*M});
+  let disclaimerTxt = "* Estimates based on Voltek package data. Actual results vary by roof size, orientation & shading. Rebates subject to programme availability.";
+  if (st.meterCost) disclaimerTxt += " Final meter phase upgrade price is subject to Terms & Conditions based on TNB rules and regulations.";
+  doc.text(disclaimerTxt, M, 290, {maxWidth:W-2*M});
 
   deliverPdf(doc, "Voltek_Solar_Comparison_"+new Date().toISOString().slice(0,10)+".pdf");
 }
@@ -1604,7 +1606,7 @@ function drawEstimatePage(doc, st, opts){
   line("Phase type", (st.phase==="single"?"Single":"Three")+" phase"+(st.phaseNote?" (assumed)":""));
   line("EV user", st.ev==="yes"?"Yes":"No");
   line("Day/Night ratio", st.ratio);
-  line("TNB meter location", meterLabel(st.meterType));
+  line("TNB meter phase upgrade", (st.meterType==="wall"?"Wall-mounted":st.meterType==="gate"?"Gate Area":"Manual")+" — "+RM(st.meterCost));
   y+=2;
 
   section("RECOMMENDED SYSTEM");
@@ -1637,7 +1639,7 @@ function drawEstimatePage(doc, st, opts){
   line("System price", RM(st.atapPrice));
   line("Voltek rebate", "- "+RM(VOLTEK_REBATE));
   if(st.batteries) line("Battery × "+st.batteries+" ("+st.batteries*5+"kWh)", "+ "+RM(st.batCost));
-  if(st.meterCost) line("TNB meter relocation ("+meterLabel(st.meterType)+")", "+ "+RM(st.meterCost));
+  if(st.meterCost) line("Meter phase upgrade* ("+(st.meterType==="wall"?"Wall-mounted":st.meterType==="gate"?"Gate Area":"Manual")+")", "+ "+RM(st.meterCost));
   line("Total Payment", RM(st.totalPayment), true);
   line("SuRIA rebate", "- "+RM(st.okapi.suria));
   line("Total Investment", RM(st.invest), true);
@@ -1651,7 +1653,9 @@ function drawEstimatePage(doc, st, opts){
   line("Payback (card)", st.cardRoi.toFixed(1)+" years");
 
   doc.setFontSize(8); doc.setTextColor(...muted); doc.setFont(undefined,"normal");
-  doc.text("* Estimates based on Voltek package data. Actual results vary by roof size, orientation & shading. Rebates subject to programme availability.", M, 285, {maxWidth:W-2*M});
+  let estDisclaimer = "* Estimates based on Voltek package data. Actual results vary by roof size, orientation & shading. Rebates subject to programme availability.";
+  if (st.meterCost) estDisclaimer += " Final meter phase upgrade price is subject to Terms & Conditions based on TNB rules and regulations.";
+  doc.text(estDisclaimer, M, 285, {maxWidth:W-2*M});
 }
 
 function deliverPdf(doc, fname){
