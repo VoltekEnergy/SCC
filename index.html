@@ -893,15 +893,10 @@ function pickPackage(avg, userPhase, brand) {
   // Bill-to-kwp heuristic: RM200→5.4kWp ... RM1000+→18.6kWp
   // Map bill ranges to kwp tiers
   const billMap = [
-    // ≤12 kWp: full range matching Deye/Huawei/Hoymiles sizes
-    {max:280,  kwp:5.4},  {max:330,  kwp:6.0},  {max:380,  kwp:6.6},
-    {max:430,  kwp:7.2},  {max:480,  kwp:7.8},  {max:550,  kwp:8.4},
-    {max:640,  kwp:9.0},  {max:720,  kwp:9.6},  {max:820,  kwp:10.2},
-    {max:920,  kwp:10.8}, {max:1100, kwp:12.0},
-    // ≥13.2 kWp: ATAP sizes from Aspire v2
-    {max:1200, kwp:13.2}, {max:1300, kwp:13.8}, {max:1400, kwp:14.4},
-    {max:1550, kwp:15.6}, {max:1700, kwp:16.8}, {max:1850, kwp:17.4},
-    {max:9999, kwp:18.6},
+    // Recommendation rule: PV_System_proposal_11_6.xlsx anchor sizes only
+    // 4.2 / 6.0 / 8.4 / 10.2 / 12.0 kWp — these are the standard recommended systems
+    {max:325,  kwp:4.2},  {max:500,  kwp:6.0},  {max:700,  kwp:8.4},
+    {max:900,  kwp:10.2}, {max:9999, kwp:12.0},
   ];
   // For brands that don't have the exact kwp, pick the nearest available
   const brandPkgs = PRICE_DATA[brand].packages;
