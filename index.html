@@ -1205,6 +1205,17 @@ function renderCalculator(mount){
       </div>
     </div>
 
+    <!-- STEP 9: Payment Plan for proposal -->
+    <div class="input-card">
+      <div class="input-card-title">📄 Payment Plan in Proposal</div>
+      <div class="calc-hint" style="margin-bottom:10px;margin-top:-4px">Choose which plan(s) to include in the exported PDF.</div>
+      <div class="seg cb-planseg">
+        <button type="button" data-plan="both" class="active">Both</button>
+        <button type="button" data-plan="rakyat">SuRIA Rakyat</button>
+        <button type="button" data-plan="prime">SuRIA Prime</button>
+      </div>
+    </div>
+
     <button type="button" class="btn block cb-go" style="font-size:16px;padding:15px">
       Calculate Solar Savings →
     </button>
@@ -1220,6 +1231,7 @@ function renderCalculator(mount){
   let batteries = 0;
   let meterType = "none";
   let meterCost = 0;
+  let planChoice = "both";
 
   const bills     = [...box.querySelectorAll(".cb-bill")];
   const nameEl    = box.querySelector(".cb-name");
@@ -1239,6 +1251,7 @@ function renderCalculator(mount){
   const meterBtns = [...box.querySelectorAll(".cb-meterseg button")];
   const meterManual = box.querySelector(".cb-meter-manual");
   const meterCostEl = box.querySelector(".cb-meter-cost");
+  const planBtns = [...box.querySelectorAll(".cb-planseg button")];
 
   const avg = () => {
     const v = bills.map(i=>parseFloat(i.value)).filter(n=>!isNaN(n)&&n>0);
@@ -1379,6 +1392,11 @@ function renderCalculator(mount){
     if (meterType === "other") meterCost = parseFloat(meterCostEl.value) || 0;
   };
 
+  planBtns.forEach(b => b.onclick = () => {
+    planChoice = b.dataset.plan;
+    planBtns.forEach(x => x.classList.toggle("active", x === b));
+  });
+
   // ── reset button ──────────────────────────────────────────────────────────
   pkgReset.onclick = () => {
     selKwp = null;
@@ -1449,7 +1467,7 @@ function renderCalculator(mount){
       a, brand, phase: phaseUsed, phaseNote,
       pkg, atapPrice, okapi,
       note, ev, ratio, requested: isRequested,
-      meterType, meterCost,
+      meterType, meterCost, planChoice,
       ...e
     };
     renderCalcResult(result, st);
@@ -1636,31 +1654,39 @@ function drawEstimatePage(doc, st, opts){
   doc.setTextColor(...green); doc.setFontSize(12); doc.setFont(undefined,"bold");
   doc.text("Monthly saving: "+RM(st.save), M, y); y+=9;
 
-  section("PLAN A — SuRIA RAKYAT (OKAPI INSTALLMENT)");
-  line("Monthly installment"+(st.batteries?(" (incl. "+st.batteries+(st.batteries>1?" batteries":" battery")+")"):"")+""  , RM(st.installment));
-  line("Monthly saving", RM(st.save));
-  line("Positive cashflow / month", (st.cashflow>=0?"+":"")+RM(st.cashflow), true);
-  line("Installment tenure", "10 years");
-  line("Warranty", "10+ years warranty from manufacturer");
-  y+=3;
+  const plan = st.planChoice || "both";
+  const showRakyat = (plan === "both" || plan === "rakyat");
+  const showPrime  = (plan === "both" || plan === "prime");
 
-  const brandLbl = st.brand ? " ("+st.brand.charAt(0).toUpperCase()+st.brand.slice(1)+")" : "";
-  section("PLAN B — SuRIA PRIME"+brandLbl+" · Outright Purchase");
-  line("System price", RM(st.atapPrice));
-  line("Voltek rebate", "- "+RM(VOLTEK_REBATE));
-  if(st.batteries) line("Battery × "+st.batteries+" ("+st.batteries*5+"kWh)", "+ "+RM(st.batCost));
-  if(st.meterCost) line("Meter phase upgrade* ("+(st.meterType==="wall"?"Wall-mounted":st.meterType==="gate"?"Gate Area":"Manual")+")", "+ "+RM(st.meterCost));
-  line("Total Payment", RM(st.totalPayment), true);
-  line("SuRIA rebate", "- "+RM(st.okapi.suria));
-  line("Total Investment", RM(st.invest), true);
-  line("Payback period (ROI)", st.roiYears.toFixed(1)+" years", true);
-  line("Warranty", "10+ years warranty from manufacturer");
-  y+=2;
-  doc.setFontSize(10); doc.setTextColor(...orange); doc.setFont(undefined,"bold");
-  doc.text("Credit Card easy payment (6% charge by deduct Voltek rebate)", M, y); y+=6;
-  line("Card payment total", RM(st.cardTotal));
-  line("Total investment (card)", RM(st.cardInvest), true);
-  line("Payback (card)", st.cardRoi.toFixed(1)+" years");
+  if (showRakyat) {
+    section("PLAN A — SuRIA RAKYAT (OKAPI INSTALLMENT)");
+    line("Monthly installment"+(st.batteries?(" (incl. "+st.batteries+(st.batteries>1?" batteries":" battery")+")"):"")+""  , RM(st.installment));
+    line("Monthly saving", RM(st.save));
+    line("Positive cashflow / month", (st.cashflow>=0?"+":"")+RM(st.cashflow), true);
+    line("Installment tenure", "10 years");
+    line("Warranty", "10+ years warranty from manufacturer");
+    y+=3;
+  }
+
+  if (showPrime) {
+    const brandLbl = st.brand ? " ("+st.brand.charAt(0).toUpperCase()+st.brand.slice(1)+")" : "";
+    section((showRakyat?"PLAN B":"PLAN A")+" — SuRIA PRIME"+brandLbl+" · Outright Purchase");
+    line("System price", RM(st.atapPrice));
+    line("Voltek rebate", "- "+RM(VOLTEK_REBATE));
+    if(st.batteries) line("Battery × "+st.batteries+" ("+st.batteries*5+"kWh)", "+ "+RM(st.batCost));
+    if(st.meterCost) line("Meter phase upgrade* ("+(st.meterType==="wall"?"Wall-mounted":st.meterType==="gate"?"Gate Area":"Manual")+")", "+ "+RM(st.meterCost));
+    line("Total Payment", RM(st.totalPayment), true);
+    line("SuRIA rebate", "- "+RM(st.okapi.suria));
+    line("Total Investment", RM(st.invest), true);
+    line("Payback period (ROI)", st.roiYears.toFixed(1)+" years", true);
+    line("Warranty", "10+ years warranty from manufacturer");
+    y+=2;
+    doc.setFontSize(10); doc.setTextColor(...orange); doc.setFont(undefined,"bold");
+    doc.text("Credit Card easy payment (6% charge by deduct Voltek rebate)", M, y); y+=6;
+    line("Card payment total", RM(st.cardTotal));
+    line("Total investment (card)", RM(st.cardInvest), true);
+    line("Payback (card)", st.cardRoi.toFixed(1)+" years");
+  }
 
   doc.setFontSize(8); doc.setTextColor(...muted); doc.setFont(undefined,"normal");
   let estDisclaimer = "* Estimates based on Voltek package data. Actual results vary by roof size, orientation & shading. Rebates subject to programme availability.";
