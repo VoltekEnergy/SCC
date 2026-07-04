@@ -775,6 +775,8 @@ const PRICE_DATA = {
   huawei: {
     battery5kwh_first: 15000,
     battery5kwh_add:   9400,
+    battery5kwhOkapiFirst: 16200,  // OKAPI 1st battery
+    battery5kwhOkapiAdd:   10152,  // OKAPI 2nd+ battery
     battery_ctrl:      18300,
     packages: [
       // ── ≤12 kWp: Full Aspire Huawei prices ──
@@ -829,27 +831,28 @@ const PRICE_DATA = {
 
 // Saving % and OKAPI data mapped by kwp (kept from original programme data)
 const OKAPI_DATA = {
-  // ≤12 kWp: from PV_System_proposal_11_6.xlsx (5 anchor points), interpolated for in-between
-  4.2:  {savePct:67.7, okapiMonthly:167, okapiPrice:12999, suria:1800},
-  5.4:  {savePct:67.7, okapiMonthly:167, okapiPrice:12999, suria:1800},
-  6.0:  {savePct:71.5, okapiMonthly:225, okapiPrice:17999, suria:3000},
-  6.6:  {savePct:71.5, okapiMonthly:245, okapiPrice:19499, suria:3000},
-  7.2:  {savePct:71.5, okapiMonthly:265, okapiPrice:20999, suria:3000},
-  7.8:  {savePct:71.5, okapiMonthly:285, okapiPrice:22499, suria:3000},
-  8.4:  {savePct:71.2, okapiMonthly:311, okapiPrice:23999, suria:3000},
-  9.0:  {savePct:71.2, okapiMonthly:330, okapiPrice:24999, suria:3000},
-  9.6:  {savePct:71.2, okapiMonthly:340, okapiPrice:25999, suria:3000},
-  10.2: {savePct:56.6, okapiMonthly:397, okapiPrice:29999, suria:3000},
-  10.8: {savePct:56.6, okapiMonthly:360, okapiPrice:27999, suria:3000},
-  12.0: {savePct:69.2, okapiMonthly:478, okapiPrice:34999, suria:3000},
-  // ≥13.2 kWp: interpolated from File 1 progression
-  13.2: {savePct:69.2, okapiMonthly:520, okapiPrice:38499, suria:3000},
-  13.8: {savePct:69.2, okapiMonthly:545, okapiPrice:40299, suria:3000},
-  14.4: {savePct:69.2, okapiMonthly:570, okapiPrice:42099, suria:3000},
-  15.6: {savePct:69.2, okapiMonthly:620, okapiPrice:45699, suria:3000},
-  16.8: {savePct:69.2, okapiMonthly:670, okapiPrice:49299, suria:3000},
-  17.4: {savePct:69.2, okapiMonthly:695, okapiPrice:51099, suria:3000},
-  18.6: {savePct:69.2, okapiMonthly:745, okapiPrice:54699, suria:3000},
+  // OKAPI system prices from Aspire SuRIA Rakyat pricelist ("OKAPI New Price" sheet)
+  // okapiMonthly = 0 → monthly derived as round(okapiPrice × 1.54 ÷ 120)
+  4.2:  {savePct:67.7, okapiMonthly:0, okapiPrice:14999, suria:1800},
+  4.8:  {savePct:67.7, okapiMonthly:0, okapiPrice:17299, suria:3000},
+  5.4:  {savePct:67.7, okapiMonthly:0, okapiPrice:17499, suria:1800},
+  6.0:  {savePct:71.5, okapiMonthly:0, okapiPrice:19499, suria:3000},
+  6.6:  {savePct:71.5, okapiMonthly:0, okapiPrice:21399, suria:3000},
+  7.2:  {savePct:71.5, okapiMonthly:0, okapiPrice:23399, suria:3000},
+  7.8:  {savePct:71.5, okapiMonthly:0, okapiPrice:25299, suria:3000},
+  8.4:  {savePct:71.2, okapiMonthly:0, okapiPrice:25999, suria:3000},
+  9.0:  {savePct:71.2, okapiMonthly:0, okapiPrice:27899, suria:3000},
+  9.6:  {savePct:71.2, okapiMonthly:0, okapiPrice:29699, suria:3000},
+  10.2: {savePct:56.6, okapiMonthly:0, okapiPrice:31399, suria:3000},
+  10.8: {savePct:56.6, okapiMonthly:0, okapiPrice:33299, suria:3000},
+  12.0: {savePct:69.2, okapiMonthly:0, okapiPrice:36799, suria:3000},
+  13.2: {savePct:69.2, okapiMonthly:0, okapiPrice:40399, suria:3000},
+  13.8: {savePct:69.2, okapiMonthly:0, okapiPrice:42299, suria:3000},
+  14.4: {savePct:69.2, okapiMonthly:0, okapiPrice:44199, suria:3000},
+  15.6: {savePct:69.2, okapiMonthly:0, okapiPrice:47799, suria:3000},
+  16.8: {savePct:69.2, okapiMonthly:0, okapiPrice:51499, suria:3000},
+  17.4: {savePct:69.2, okapiMonthly:0, okapiPrice:53199, suria:3000},
+  18.6: {savePct:69.2, okapiMonthly:0, okapiPrice:56999, suria:3000},
 };
 
 const VOLTEK_REBATE = 2000;
@@ -953,10 +956,17 @@ function computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phase, mete
   // Meter phase upgrade cost is NOT part of the OKAPI installment — it only applies to outright.
   // OKAPI battery price differs from Prime: Hoymiles RM 7,020/5kWh under OKAPI (RM 6,500 Prime).
   const okapiBase = (okapi.okapiPrice || atapPrice);
-  const okapiBatUnit = (PRICE_DATA[brand] && PRICE_DATA[brand].battery5kwhOkapi) || null;
-  const okapiBatCost = effBat > 0
-    ? (okapiBatUnit ? effBat * okapiBatUnit : batCost)
-    : 0;
+  let okapiBatCost = 0;
+  if (effBat > 0) {
+    const bd = PRICE_DATA[brand] || {};
+    if (bd.battery5kwhOkapiFirst) {
+      okapiBatCost = bd.battery5kwhOkapiFirst + Math.max(0, effBat - 1) * (bd.battery5kwhOkapiAdd || bd.battery5kwhOkapiFirst);
+    } else if (bd.battery5kwhOkapi) {
+      okapiBatCost = effBat * bd.battery5kwhOkapi;
+    } else {
+      okapiBatCost = batCost;
+    }
+  }
   const okapiSystemPrice = okapiBase + okapiBatCost;
   const installment = effBat > 0
     ? Math.round(okapiSystemPrice * 1.54 / 120)
@@ -1679,89 +1689,130 @@ function drawEstimatePage(doc, st, opts){
 
 function drawInclusivePage(doc){
   doc.addPage();
-  const W=210, M=18;
-  const navy=[13,42,58], orange=[239,90,42], dark=[25,30,38], muted=[90,100,112];
+  const W=210, H=297, M=15;
+  const bg=[23,28,36], card=[33,40,50], cardLight=[38,46,58];
+  const orange=[232,92,41], white=[255,255,255], muted=[130,140,152], lightTxt=[200,207,215];
 
-  // Header: logo top-right + "TRUSTED SINCE 2019"
-  try{ doc.addImage(LOGO_SRC,"PNG",W-M-46,10,46,14); }catch(e){}
-  doc.setTextColor(...dark); doc.setFontSize(9); doc.setFont(undefined,"bold");
-  doc.text("TRUSTED SINCE 2019", W-M, 30, {align:"right"});
+  // Full dark background + orange top bar
+  doc.setFillColor(...bg); doc.rect(0,0,W,H,"F");
+  doc.setFillColor(...orange); doc.rect(0,0,W,2.6,"F");
 
-  // Decorative corner accents (orange rounded triangles)
-  doc.setFillColor(...orange);
-  doc.roundedRect(W-16, 52, 22, 22, 5, 5, "F");
-  doc.roundedRect(-6, 168, 22, 22, 5, 5, "F");
-  doc.roundedRect(W-16, 246, 22, 22, 5, 5, "F");
+  // Header: logo left, tagline right
+  try{ doc.addImage(LOGO_SRC,"PNG",M,11,44,13); }catch(e){}
+  doc.setTextColor(...orange); doc.setFontSize(9.5); doc.setFont(undefined,"bold");
+  doc.text("L E A D I N G   T H E   F U T U R E   J U S T   T R A N S I T I O N", W-M, 16, {align:"right"});
+  doc.setTextColor(...muted); doc.setFontSize(8); doc.setFont(undefined,"normal");
+  doc.text("Trusted Since 2019", W-M, 21.5, {align:"right"});
 
-  // Section title helper with left bar
-  function bigTitle(txt, y){
-    doc.setFillColor(...dark); doc.rect(M-6, y-9, 1.6, 13, "F");
-    doc.setTextColor(...navy); doc.setFontSize(23); doc.setFont(undefined,"bold");
-    doc.text(txt, M, y);
-  }
+  // ── PRICE INCLUSIVE ──────────────────────────────────────────────────────
+  let y = 40;
+  doc.setTextColor(...white); doc.setFontSize(17); doc.setFont(undefined,"bold");
+  doc.text("PRICE INCLUSIVE", M, y);
+  doc.setTextColor(...orange); doc.setFontSize(7.5);
+  doc.text("S C O P E   O F   W O R K S   C O V E R E D", M, y+6);
+  doc.setDrawColor(55,63,75); doc.setLineWidth(0.3);
+  doc.line(M, y+9.5, W-M, y+9.5);
 
-  // Check badge: orange scalloped circle + white tick
-  function badge(x, y){
-    const r=4.6;
+  // 2×3 grid of inclusion cards
+  const items = ["TNB REGISTRATION (ATAP CERT)","ENGINEERING DESIGN",
+                 "PRODUCT PROCUREMENT","INSTALLATION",
+                 "TESTING & COMMISSIONING","MONITORING APPS"];
+  const colW=(W-2*M-6)/2, rowH=14, gap=5;
+  let gy = y+15;
+  items.forEach((t,i)=>{
+    const col=i%2, row=Math.floor(i/2);
+    const x=M+col*(colW+6), yy=gy+row*(rowH+gap);
+    doc.setFillColor(...card);
+    doc.roundedRect(x, yy, colW, rowH, 2.5, 2.5, "F");
+    // Target icon: orange ring + solid dot
+    const ix=x+8.5, iy=yy+rowH/2;
+    doc.setDrawColor(...orange); doc.setLineWidth(0.9);
+    doc.circle(ix, iy, 3.1, "S");
     doc.setFillColor(...orange);
-    for(let i=0;i<12;i++){
-      const a=i*Math.PI/6;
-      doc.circle(x+Math.cos(a)*r*0.82, y+Math.sin(a)*r*0.82, r*0.34, "F");
-    }
-    doc.circle(x, y, r, "F");
-    doc.setDrawColor(255,255,255); doc.setLineWidth(1.3);
-    doc.line(x-2.1, y+0.2, x-0.6, y+1.8);
-    doc.line(x-0.6, y+1.8, x+2.4, y-1.9);
-    doc.setLineWidth(0.2);
-  }
-
-  function item(y, title, subLines){
-    badge(M+5, y-1.4);
-    doc.setTextColor(...dark); doc.setFontSize(12.5); doc.setFont(undefined,"bold");
-    doc.text(title, M+14, y);
-    let yy = y+5;
-    if(subLines && subLines.length){
-      doc.setFontSize(9); doc.setFont(undefined,"normal"); doc.setTextColor(...muted);
-      subLines.forEach(s=>{
-        const wrapped = doc.splitTextToSize(s, W-M-14-M);
-        doc.text(wrapped, M+14, yy);
-        yy += 4.2*wrapped.length;
-      });
-    }
-    return yy;
-  }
-
-  // ── PRICE INCLUSIVE ──
-  bigTitle("PRICE INCLUSIVE", 34);
-  let y = 48;
-  ["TNB REGISTRATION (ATAP CERT)","ENGINEERING DESIGN","PRODUCT PROCUREMENT",
-   "INSTALLATION","TESTING & COMMISSIONING","MONITORING APPS"].forEach(t=>{
-    item(y, t); y += 13.5;
+    doc.circle(ix, iy, 1.4, "F");
+    doc.setTextColor(...white); doc.setFontSize(9.5); doc.setFont(undefined,"bold");
+    doc.text(t, x+15, iy+1.2);
   });
 
-  // ── WARRANTIES & SUPPORT ──
-  y += 5;
-  bigTitle("WARRANTIES & SUPPORT", y); y += 13;
+  // ── WARRANTIES & SUPPORT ─────────────────────────────────────────────────
+  let wy = gy + 3*(rowH+gap) + 8;
+  doc.setTextColor(...white); doc.setFontSize(17); doc.setFont(undefined,"bold");
+  doc.text("WARRANTIES & SUPPORT", M, wy);
+  doc.setTextColor(...orange); doc.setFontSize(7.5);
+  doc.text("L O N G - T E R M   A S S E T   P R O T E C T I O N", M, wy+6);
 
-  y = item(y, "SOLAR PV MODULE", [
-    "12 years product warranty",
-    "30 years linear output performance warranty"]) + 4;
-  y = item(y, "SOLAR PV HYBRID INVERTER", ["10 years warranty"]) + 4;
-  y = item(y, "RESIDENTIAL ESS SOLUTION", ["10 years warranty"]) + 4;
-  y = item(y, "MOUNTING STRUCTURE", [
-    "10 years product performance warranty",
-    "*Warranty is void if installation site within 1 km from the shore."]) + 4;
-  y = item(y, "LIFETIME CUSTOMER EXPERIENCE", [
-    "Lifetime CX group to assist any technical enquiries."]) + 4;
-  y = item(y, "WORKMANSHIP WARRANTY", [
-    "24 months Defect Liability Period, includes materials, labour & traveling costs, excluding all act of nature, security issues, vandalism or inappropriate care of the materials. Services that are out of Workmanship Warranty are subjected to charges eg. delivery reinstallation labour, skylift (if required), etc."]);
+  // Warranty row helper: dark card, orange left bar, title left / details right
+  const titleColX = M+7, detailX = M+62;
+  function wRow(y0, h, title, drawDetails){
+    doc.setFillColor(...card);
+    doc.roundedRect(M, y0, W-2*M, h, 2, 2, "F");
+    doc.setFillColor(...orange);
+    doc.rect(M, y0+2, 1.4, h-4, "F");
+    doc.setTextColor(...white); doc.setFontSize(10.5); doc.setFont(undefined,"bold");
+    const tLines = doc.splitTextToSize(title, 48);
+    doc.text(tLines, titleColX, y0+8);
+    drawDetails(y0);
+    return y0 + h + 4;
+  }
+  function arrowLine(y0, boldPart, normalPart){
+    doc.setTextColor(...orange); doc.setFontSize(9); doc.setFont(undefined,"bold");
+    doc.text("→", detailX, y0);
+    doc.setTextColor(...white);
+    doc.text(boldPart, detailX+5, y0);
+    const bw = doc.getTextWidth(boldPart);
+    doc.setTextColor(...lightTxt); doc.setFont(undefined,"normal");
+    doc.text(" "+normalPart, detailX+5+bw, y0);
+  }
+
+  let ry = wy + 11;
+  ry = wRow(ry, 17, "SOLAR PV MODULE", (y0)=>{
+    arrowLine(y0+7,  "12 Years", "Product Warranty");
+    arrowLine(y0+13, "30 Years", "Linear Output Performance Warranty");
+  });
+  ry = wRow(ry, 13, "SOLAR PV HYBRID INVERTER", (y0)=>{
+    arrowLine(y0+8, "10 Years", "Warranty");
+  });
+  ry = wRow(ry, 13, "RESIDENTIAL ESS SOLUTION", (y0)=>{
+    arrowLine(y0+8, "10 Years", "Warranty");
+  });
+  ry = wRow(ry, 18, "MOUNTING STRUCTURE", (y0)=>{
+    arrowLine(y0+7, "10 Years", "Product Performance Warranty");
+    doc.setDrawColor(70,78,90); doc.setLineWidth(0.2);
+    doc.setLineDashPattern([1,1],0);
+    doc.line(detailX, y0+10, W-M-5, y0+10);
+    doc.setLineDashPattern([],0);
+    doc.setTextColor(...muted); doc.setFontSize(7.5); doc.setFont(undefined,"normal");
+    doc.text("*Warranty is void if installation site is within 1 km from the shore.", detailX, y0+14.5);
+  });
+  ry = wRow(ry, 15, "LIFETIME CX", (y0)=>{
+    doc.setTextColor(...lightTxt); doc.setFontSize(8.5); doc.setFont(undefined,"normal");
+    const t = doc.splitTextToSize("Dedicated Lifetime CX group to assist with any technical enquiries post-commissioning.", W-M-5-detailX);
+    doc.text(t, detailX, y0+7);
+  });
+  ry = wRow(ry, 26, "WORKMANSHIP", (y0)=>{
+    doc.setTextColor(...white); doc.setFontSize(8.5); doc.setFont(undefined,"bold");
+    doc.text("24 Months", detailX, y0+7);
+    const bw = doc.getTextWidth("24 Months");
+    doc.setTextColor(...lightTxt); doc.setFont(undefined,"normal");
+    const rest = "Defect Liability Period. Includes all materials, labour, and travelling costs. Excludes acts of nature, security issues, vandalism, or inappropriate care. Out-of-warranty services are subject to standard delivery, reinstallation, and equipment charges.";
+    const wrapped = doc.splitTextToSize(" "+rest, W-M-5-detailX);
+    // First line continues after "24 Months"
+    const firstLine = doc.splitTextToSize(" "+rest, W-M-5-detailX-bw)[0];
+    doc.text(firstLine, detailX+bw, y0+7);
+    const remaining = rest.slice(firstLine.trim().length).trim();
+    const remLines = doc.splitTextToSize(remaining, W-M-5-detailX);
+    doc.text(remLines, detailX, y0+11.2);
+  });
 
   // Footer
-  doc.setFillColor(...navy); doc.circle(W/2-24, 285, 2.6, "F");
-  doc.setTextColor(255,255,255); doc.setFontSize(6); doc.setFont(undefined,"bold");
-  doc.text("w", W/2-24, 286, {align:"center"});
-  doc.setTextColor(...dark); doc.setFontSize(11); doc.setFont(undefined,"bold");
-  doc.text("voltekenergy.info", W/2-18, 286.5);
+  doc.setTextColor(...muted); doc.setFontSize(8); doc.setFont(undefined,"normal");
+  doc.text("Confidential Commercial Solar Proposal", M, 289);
+  doc.setFont(undefined,"bold");
+  doc.setTextColor(...orange);
+  const fx = W-M-doc.getTextWidth("voltekenergy.info");
+  doc.text("voltek", fx, 289);
+  doc.setTextColor(...white);
+  doc.text("energy.info", fx+doc.getTextWidth("voltek"), 289);
 }
 
 function deliverPdf(doc, fname){
