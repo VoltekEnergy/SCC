@@ -185,7 +185,7 @@
   @media(prefers-reduced-motion:reduce){*{transition:none !important}}
 
   /* BRAND SELECTOR */
-  .brand-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px}
+  .brand-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px}
   @media(max-width:500px){.brand-row{grid-template-columns:1fr 1fr}}
   .brand-btn{
     border:2px solid var(--line);background:var(--panel-2);border-radius:12px;
@@ -800,7 +800,8 @@ const PRICE_DATA = {
     ]
   },
   hoymiles: {
-    battery5kwh: 5000,
+    battery5kwh: 6500,       // standard / SuRIA Prime price per 5kWh
+    battery5kwhOkapi: 7020,  // OKAPI plan price per 5kWh
     packages: [
       // ── ≤12 kWp: Hoymiles has own prices for all sizes (SP and TP) ──
       {kwp:5.4,  panels:9,  sp:16199, tp:16199, bat5sp:21199, bat10sp:26199, bat15sp:31199, bat5tp:21199, bat10tp:26199, bat15tp:31199, phase:"both"},
@@ -949,10 +950,16 @@ function computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phase, mete
   const billAfter = Math.max(Math.round(a - save), 0);
 
   // OKAPI installment: fallback okapiPrice → atapPrice if missing.
-  // Meter phase upgrade cost is NOT part of the OKAPI installment — it only applies to outright (Plan B).
+  // Meter phase upgrade cost is NOT part of the OKAPI installment — it only applies to outright.
+  // OKAPI battery price differs from Prime: Hoymiles RM 7,020/5kWh under OKAPI (RM 6,500 Prime).
   const okapiBase = (okapi.okapiPrice || atapPrice);
+  const okapiBatUnit = (PRICE_DATA[brand] && PRICE_DATA[brand].battery5kwhOkapi) || null;
+  const okapiBatCost = effBat > 0
+    ? (okapiBatUnit ? effBat * okapiBatUnit : batCost)
+    : 0;
+  const okapiSystemPrice = okapiBase + okapiBatCost;
   const installment = effBat > 0
-    ? Math.round((batCost + okapiBase) * 1.54 / 120)
+    ? Math.round(okapiSystemPrice * 1.54 / 120)
     : (okapi.okapiMonthly || Math.round(okapiBase * 1.54 / 120));
 
   // Outright: system price + battery + meter relocation − Voltek rebate
@@ -969,6 +976,7 @@ function computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phase, mete
 
   return {
     batteries: effBat, batCost, meterCost, save, billAfter, installment, totalPayment, invest, roiYears,
+    okapiSystemPrice, okapiBatCost,
     cardCharge, cardOverflow, cardTotal, cardInvest, cardRoi, cashflow: (save - installment),
     atapPrice, bundledPrice: atapPrice + batCost + meterCost
   };
@@ -1016,10 +1024,11 @@ function calcCardHtml(st, opts){
     <div class="plan-grid">
       <div class="plan rakyat">
         <div class="plan-h">SuRIA RAKYAT · OKAPI Installment</div>
-        <div class="plan-row"><span>Monthly installment${st.batteries?` (incl. ${batWord(st.batteries)})`:""}</span><b>${RM(st.installment)}</b></div>
-        <div class="plan-row"><span>Monthly saving</span><b>${RM(st.save)}</b></div>
-        <div class="plan-row hl"><span>Positive cashflow / month</span><b>${st.cashflow>=0?"+":""}${RM(st.cashflow)}</b></div>
-        <div class="plan-f">10 years installment · 10+ years warranty from manufacturer · No big upfront cost.</div>
+        <div class="plan-row"><span>System Price OKAPI${st.batteries?` (incl. ${batWord(st.batteries)})`:""}</span><b>${RM(st.okapiSystemPrice)}</b></div>
+        <div class="plan-row"><span>Inverter Brand</span><b>${st.brand.charAt(0).toUpperCase()+st.brand.slice(1)}</b></div>
+        <div class="plan-row"><span>Phase Type</span><b>${st.phase==="single"?"Single Phase":"Three Phase"}</b></div>
+        <div class="plan-row"><span>Energy consumption ratio (Day / Night)</span><b>${st.ratio}</b></div>
+        <div class="plan-f">*Price include OKAPI Financier Processing Fee</div>
       </div>
       <div class="plan prime">
         <div class="plan-h">SuRIA PRIME · Outright Purchase</div>
@@ -1128,8 +1137,8 @@ function renderCalculator(mount){
     <div class="input-card">
       <div class="input-card-title">🏭 Inverter Brand</div>
       <div class="brand-row">
-        <button type="button" class="brand-btn deye active" data-brand="deye">
-          <div class="bb-logo" style="color:var(--accent)">DEYE</div>
+        <button type="button" class="brand-btn hoymiles active" data-brand="hoymiles">
+          <div class="bb-logo" style="color:#e6a800">HOYMILES</div>
           <div class="bb-sub">Battery: RM 6,500 / 5kWh</div>
         </button>
         <button type="button" class="brand-btn huawei" data-brand="huawei">
@@ -1139,10 +1148,6 @@ function renderCalculator(mount){
         <button type="button" class="brand-btn sungrow" data-brand="sungrow">
           <div class="bb-logo" style="color:#0077cc">SUNGROW</div>
           <div class="bb-sub">No battery</div>
-        </button>
-        <button type="button" class="brand-btn hoymiles" data-brand="hoymiles">
-          <div class="bb-logo" style="color:#e6a800">HOYMILES</div>
-          <div class="bb-sub">Battery: RM 5,000 / 5kWh</div>
         </button>
       </div>
     </div>
@@ -1205,17 +1210,6 @@ function renderCalculator(mount){
       </div>
     </div>
 
-    <!-- STEP 9: Payment Plan for proposal -->
-    <div class="input-card">
-      <div class="input-card-title">📄 Payment Plan in Proposal</div>
-      <div class="calc-hint" style="margin-bottom:10px;margin-top:-4px">Choose which plan(s) to include in the exported PDF.</div>
-      <div class="seg cb-planseg">
-        <button type="button" data-plan="both" class="active">Both</button>
-        <button type="button" data-plan="rakyat">SuRIA Rakyat</button>
-        <button type="button" data-plan="prime">SuRIA Prime</button>
-      </div>
-    </div>
-
     <button type="button" class="btn block cb-go" style="font-size:16px;padding:15px">
       Calculate Solar Savings →
     </button>
@@ -1224,14 +1218,13 @@ function renderCalculator(mount){
   mount.appendChild(box);
 
   // ── state ──────────────────────────────────────────────────────────────────
-  let brand = "deye";
+  let brand = "hoymiles";
   let phase = "auto";
   let ev    = "no";
   let selKwp = null;   // null = auto from bill
   let batteries = 0;
   let meterType = "none";
   let meterCost = 0;
-  let planChoice = "both";
 
   const bills     = [...box.querySelectorAll(".cb-bill")];
   const nameEl    = box.querySelector(".cb-name");
@@ -1251,7 +1244,6 @@ function renderCalculator(mount){
   const meterBtns = [...box.querySelectorAll(".cb-meterseg button")];
   const meterManual = box.querySelector(".cb-meter-manual");
   const meterCostEl = box.querySelector(".cb-meter-cost");
-  const planBtns = [...box.querySelectorAll(".cb-planseg button")];
 
   const avg = () => {
     const v = bills.map(i=>parseFloat(i.value)).filter(n=>!isNaN(n)&&n>0);
@@ -1297,13 +1289,7 @@ function renderCalculator(mount){
       : null;
     [0,1,2,3].forEach(n => {
       let costLabel = "—";
-      if (n > 0 && activePkg) {
-        const base = getPackagePrice(brand, activePkg, phase === "single" ? "single" : "three", 0);
-        const withBat = getPackagePrice(brand, activePkg, phase === "single" ? "single" : "three", n);
-        if (withBat && base) costLabel = "+"+RM(withBat - base);
-      } else if (n > 0) {
-        costLabel = "+"+RM(getBatteryCost(brand, n));
-      }
+      if (n > 0) costLabel = "+"+RM(getBatteryCost(brand, n));
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "bat-btn" + (n === batteries ? " active" : "");
@@ -1392,11 +1378,6 @@ function renderCalculator(mount){
     if (meterType === "other") meterCost = parseFloat(meterCostEl.value) || 0;
   };
 
-  planBtns.forEach(b => b.onclick = () => {
-    planChoice = b.dataset.plan;
-    planBtns.forEach(x => x.classList.toggle("active", x === b));
-  });
-
   // ── reset button ──────────────────────────────────────────────────────────
   pkgReset.onclick = () => {
     selKwp = null;
@@ -1467,7 +1448,7 @@ function renderCalculator(mount){
       a, brand, phase: phaseUsed, phaseNote,
       pkg, atapPrice, okapi,
       note, ev, ratio, requested: isRequested,
-      meterType, meterCost, planChoice,
+      meterType, meterCost,
       ...e
     };
     renderCalcResult(result, st);
@@ -1481,6 +1462,7 @@ function downloadCalcPdf(st){
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF({unit:"mm", format:"a4"});
   drawEstimatePage(doc, st);
+  drawInclusivePage(doc);
   const brand = st.brand ? "_"+st.brand.charAt(0).toUpperCase()+st.brand.slice(1) : "";
   deliverPdf(doc, "Voltek_Solar_Estimate"+brand+"_"+new Date().toISOString().slice(0,10)+".pdf");
 }
@@ -1654,9 +1636,9 @@ function drawEstimatePage(doc, st, opts){
   doc.setTextColor(...green); doc.setFontSize(12); doc.setFont(undefined,"bold");
   doc.text("Monthly saving: "+RM(st.save), M, y); y+=9;
 
-  const plan = st.planChoice || "both";
-  const showRakyat = (plan === "both" || plan === "rakyat");
-  const showPrime  = (plan === "both" || plan === "prime");
+  // Proposal PDF always shows SuRIA Prime + credit card plan only
+  const showRakyat = false;
+  const showPrime  = true;
 
   if (showRakyat) {
     section("PLAN A — SuRIA RAKYAT (OKAPI INSTALLMENT)");
@@ -1670,7 +1652,7 @@ function drawEstimatePage(doc, st, opts){
 
   if (showPrime) {
     const brandLbl = st.brand ? " ("+st.brand.charAt(0).toUpperCase()+st.brand.slice(1)+")" : "";
-    section((showRakyat?"PLAN B":"PLAN A")+" — SuRIA PRIME"+brandLbl+" · Outright Purchase");
+    section("SuRIA PRIME"+brandLbl+" · Outright Purchase");
     line("System price", RM(st.atapPrice));
     line("Voltek rebate", "- "+RM(VOLTEK_REBATE));
     if(st.batteries) line("Battery × "+st.batteries+" ("+st.batteries*5+"kWh)", "+ "+RM(st.batCost));
@@ -1692,6 +1674,94 @@ function drawEstimatePage(doc, st, opts){
   let estDisclaimer = "* Estimates based on Voltek package data. Actual results vary by roof size, orientation & shading. Rebates subject to programme availability.";
   if (st.meterCost) estDisclaimer += " Final meter phase upgrade price is subject to Terms & Conditions based on TNB rules and regulations.";
   doc.text(estDisclaimer, M, 285, {maxWidth:W-2*M});
+}
+
+
+function drawInclusivePage(doc){
+  doc.addPage();
+  const W=210, M=18;
+  const navy=[13,42,58], orange=[239,90,42], dark=[25,30,38], muted=[90,100,112];
+
+  // Header: logo top-right + "TRUSTED SINCE 2019"
+  try{ doc.addImage(LOGO_SRC,"PNG",W-M-46,10,46,14); }catch(e){}
+  doc.setTextColor(...dark); doc.setFontSize(9); doc.setFont(undefined,"bold");
+  doc.text("TRUSTED SINCE 2019", W-M, 30, {align:"right"});
+
+  // Decorative corner accents (orange rounded triangles)
+  doc.setFillColor(...orange);
+  doc.roundedRect(W-16, 52, 22, 22, 5, 5, "F");
+  doc.roundedRect(-6, 168, 22, 22, 5, 5, "F");
+  doc.roundedRect(W-16, 246, 22, 22, 5, 5, "F");
+
+  // Section title helper with left bar
+  function bigTitle(txt, y){
+    doc.setFillColor(...dark); doc.rect(M-6, y-9, 1.6, 13, "F");
+    doc.setTextColor(...navy); doc.setFontSize(23); doc.setFont(undefined,"bold");
+    doc.text(txt, M, y);
+  }
+
+  // Check badge: orange scalloped circle + white tick
+  function badge(x, y){
+    const r=4.6;
+    doc.setFillColor(...orange);
+    for(let i=0;i<12;i++){
+      const a=i*Math.PI/6;
+      doc.circle(x+Math.cos(a)*r*0.82, y+Math.sin(a)*r*0.82, r*0.34, "F");
+    }
+    doc.circle(x, y, r, "F");
+    doc.setDrawColor(255,255,255); doc.setLineWidth(1.3);
+    doc.line(x-2.1, y+0.2, x-0.6, y+1.8);
+    doc.line(x-0.6, y+1.8, x+2.4, y-1.9);
+    doc.setLineWidth(0.2);
+  }
+
+  function item(y, title, subLines){
+    badge(M+5, y-1.4);
+    doc.setTextColor(...dark); doc.setFontSize(12.5); doc.setFont(undefined,"bold");
+    doc.text(title, M+14, y);
+    let yy = y+5;
+    if(subLines && subLines.length){
+      doc.setFontSize(9); doc.setFont(undefined,"normal"); doc.setTextColor(...muted);
+      subLines.forEach(s=>{
+        const wrapped = doc.splitTextToSize(s, W-M-14-M);
+        doc.text(wrapped, M+14, yy);
+        yy += 4.2*wrapped.length;
+      });
+    }
+    return yy;
+  }
+
+  // ── PRICE INCLUSIVE ──
+  bigTitle("PRICE INCLUSIVE", 34);
+  let y = 48;
+  ["TNB REGISTRATION (ATAP CERT)","ENGINEERING DESIGN","PRODUCT PROCUREMENT",
+   "INSTALLATION","TESTING & COMMISSIONING","MONITORING APPS"].forEach(t=>{
+    item(y, t); y += 13.5;
+  });
+
+  // ── WARRANTIES & SUPPORT ──
+  y += 5;
+  bigTitle("WARRANTIES & SUPPORT", y); y += 13;
+
+  y = item(y, "SOLAR PV MODULE", [
+    "12 years product warranty",
+    "30 years linear output performance warranty"]) + 4;
+  y = item(y, "SOLAR PV HYBRID INVERTER", ["10 years warranty"]) + 4;
+  y = item(y, "RESIDENTIAL ESS SOLUTION", ["10 years warranty"]) + 4;
+  y = item(y, "MOUNTING STRUCTURE", [
+    "10 years product performance warranty",
+    "*Warranty is void if installation site within 1 km from the shore."]) + 4;
+  y = item(y, "LIFETIME CUSTOMER EXPERIENCE", [
+    "Lifetime CX group to assist any technical enquiries."]) + 4;
+  y = item(y, "WORKMANSHIP WARRANTY", [
+    "24 months Defect Liability Period, includes materials, labour & traveling costs, excluding all act of nature, security issues, vandalism or inappropriate care of the materials. Services that are out of Workmanship Warranty are subjected to charges eg. delivery reinstallation labour, skylift (if required), etc."]);
+
+  // Footer
+  doc.setFillColor(...navy); doc.circle(W/2-24, 285, 2.6, "F");
+  doc.setTextColor(255,255,255); doc.setFontSize(6); doc.setFont(undefined,"bold");
+  doc.text("w", W/2-24, 286, {align:"center"});
+  doc.setTextColor(...dark); doc.setFontSize(11); doc.setFont(undefined,"bold");
+  doc.text("voltekenergy.info", W/2-18, 286.5);
 }
 
 function deliverPdf(doc, fname){
