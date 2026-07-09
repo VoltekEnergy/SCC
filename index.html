@@ -1041,6 +1041,8 @@ function calcCardHtml(st, opts){
       <div class="plan rakyat">
         <div class="plan-h">SuRIA RAKYAT · OKAPI Installment</div>
         <div class="plan-row"><span>System Price OKAPI${st.batteries?` (incl. ${batWord(st.batteries)})`:""}</span><b>${RM(st.okapiSystemPrice)}</b></div>
+        <div class="plan-row"><span>Voltek Rebate</span><b>− ${RM(VOLTEK_REBATE)}</b></div>
+        <div class="plan-row hl"><span>Final Price (OKAPI)</span><b>${RM(st.okapiSystemPrice - VOLTEK_REBATE)}</b></div>
         <div class="plan-row"><span>Inverter Brand</span><b>${st.brand.charAt(0).toUpperCase()+st.brand.slice(1)}</b></div>
         <div class="plan-row"><span>Phase Type</span><b>${st.phase==="single"?"Single Phase":"Three Phase"}</b></div>
         <div class="plan-row"><span>Energy consumption ratio (Day / Night)</span><b>${st.ratio}</b></div>
