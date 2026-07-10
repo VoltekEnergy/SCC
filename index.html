@@ -1269,16 +1269,19 @@ function renderCalculator(mount){
   };
 
   function buildPkgGrid(autoKwp) {
-    const list = PRICE_DATA[brand].packages; // full range — any size can be picked
     const ph = phase;
+    // Single phase: only show packages that actually have a single-phase price (≤7.2 kWp)
+    const list = PRICE_DATA[brand].packages.filter(pkg =>
+      ph === "single" ? pkg.sp !== null : true
+    );
     pkgGrid.innerHTML = "";
+    // Deselect if the previously selected size is no longer visible
+    if (selKwp !== null && !list.some(p => p.kwp === selKwp)) selKwp = null;
     list.forEach(pkg => {
-      const isThreeOnly = pkg.phase === "three";
-      // Sizes ≥13.2 kWp are three-phase only in the pricelist; below that, respect chosen phase
-      const price = (pkg.kwp < 13.2 && ph === "single" && pkg.sp) ? pkg.sp : pkg.tp;
+      const price = (ph === "single" && pkg.sp) ? pkg.sp : pkg.tp;
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "pkg-btn" + (isThreeOnly ? " three-only" : "");
+      btn.className = "pkg-btn";
       const isActive = selKwp !== null ? pkg.kwp === selKwp : pkg.kwp === autoKwp;
       if (isActive) btn.classList.add("active");
       btn.innerHTML = `<span class="pk-kwp">${pkg.kwp} kWp</span>
@@ -1293,8 +1296,9 @@ function renderCalculator(mount){
       };
       pkgGrid.appendChild(btn);
     });
-    const hasDashed = list.some(p=>p.phase==="three" && ph==="single" && p.kwp<13.2 === false);
-    phNote.textContent = list.some(p=>p.phase==="three") ? "Dashed border = three phase only." : "";
+    phNote.textContent = list.length === 0
+      ? "No single phase systems available for this inverter — select three phase."
+      : (ph === "single" ? "Single phase systems available up to 7.2 kWp." : "");
     pkgReset.style.display = selKwp !== null ? "inline-flex" : "none";
   }
 
