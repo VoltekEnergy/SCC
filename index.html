@@ -757,19 +757,10 @@ const PRICE_DATA = {
     battery5kwh: 6500,
     noBattery: true,
     packages: [
+      // ── Sungrow: single phase only (4.2 / 4.8 / 6.0 kWp) ──
       {kwp:4.2,  panels:7,  sp:13799, tp:null,  bat5sp:null, bat10sp:null, bat15sp:null, bat5tp:null, bat10tp:null, bat15tp:null, phase:"single"},
       {kwp:4.8,  panels:8,  sp:15999, tp:null,  bat5sp:null, bat10sp:null, bat15sp:null, bat5tp:null, bat10tp:null, bat15tp:null, phase:"single"},
       {kwp:6.0,  panels:10, sp:17999, tp:null,  bat5sp:null, bat10sp:null, bat15sp:null, bat5tp:null, bat10tp:null, bat15tp:null, phase:"single"},
-      {kwp:8.4,  panels:14, sp:null,  tp:23999, bat5sp:null, bat10sp:null, bat15sp:null, bat5tp:null, bat10tp:null, bat15tp:null, phase:"three"},
-      {kwp:10.2, panels:17, sp:null,  tp:28999, bat5sp:null, bat10sp:null, bat15sp:null, bat5tp:null, bat10tp:null, bat15tp:null, phase:"three"},
-      {kwp:12.0, panels:20, sp:null,  tp:33999, bat5sp:null, bat10sp:null, bat15sp:null, bat5tp:null, bat10tp:null, bat15tp:null, phase:"three"},
-      {kwp:13.2, panels:22, sp:null,  tp:37399, bat5sp:null, bat10sp:null, bat15sp:null, bat5tp:null, bat10tp:null, bat15tp:null, phase:"three"},
-      {kwp:13.8, panels:23, sp:null,  tp:39099, bat5sp:null, bat10sp:null, bat15sp:null, bat5tp:null, bat10tp:null, bat15tp:null, phase:"three"},
-      {kwp:14.4, panels:24, sp:null,  tp:40799, bat5sp:null, bat10sp:null, bat15sp:null, bat5tp:null, bat10tp:null, bat15tp:null, phase:"three"},
-      {kwp:15.6, panels:26, sp:null,  tp:44199, bat5sp:null, bat10sp:null, bat15sp:null, bat5tp:null, bat10tp:null, bat15tp:null, phase:"three"},
-      {kwp:16.8, panels:28, sp:null,  tp:47599, bat5sp:null, bat10sp:null, bat15sp:null, bat5tp:null, bat10tp:null, bat15tp:null, phase:"three"},
-      {kwp:17.4, panels:29, sp:null,  tp:49199, bat5sp:null, bat10sp:null, bat15sp:null, bat5tp:null, bat10tp:null, bat15tp:null, phase:"three"},
-      {kwp:18.6, panels:31, sp:null,  tp:52699, bat5sp:null, bat10sp:null, bat15sp:null, bat5tp:null, bat10tp:null, bat15tp:null, phase:"three"},
     ]
   },
   huawei: {
@@ -926,8 +917,12 @@ function pickPackage(avg, userPhase, brand) {
   if (assumedPhase === "single" && pkg.phase === "three") {
     assumedPhase = "three";
   }
+  // If requested three but package is single-only (e.g. Sungrow)
+  if (assumedPhase === "three" && pkg.tp === null) {
+    assumedPhase = "single";
+  }
 
-  const atapPrice = (assumedPhase === "single" && pkg.sp !== null) ? pkg.sp : pkg.tp;
+  const atapPrice = (assumedPhase === "single" && pkg.sp !== null) ? pkg.sp : (pkg.tp || pkg.sp);
   const okapi = OKAPI_DATA[pkg.kwp] || OKAPI_DATA[12.0];
 
   let note = "";
@@ -1270,15 +1265,17 @@ function renderCalculator(mount){
 
   function buildPkgGrid(autoKwp) {
     const ph = phase;
-    // Single phase: only show packages that actually have a single-phase price (≤7.2 kWp)
+    // Only show packages that have a price for the selected phase
+    // (single: sp required · three: tp required · auto: any)
     const list = PRICE_DATA[brand].packages.filter(pkg =>
-      ph === "single" ? pkg.sp !== null : true
+      ph === "single" ? pkg.sp !== null :
+      ph === "three"  ? pkg.tp !== null : true
     );
     pkgGrid.innerHTML = "";
     // Deselect if the previously selected size is no longer visible
     if (selKwp !== null && !list.some(p => p.kwp === selKwp)) selKwp = null;
     list.forEach(pkg => {
-      const price = (ph === "single" && pkg.sp) ? pkg.sp : pkg.tp;
+      const price = (ph === "single" && pkg.sp) ? pkg.sp : (pkg.tp || pkg.sp);
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "pkg-btn";
@@ -1297,7 +1294,9 @@ function renderCalculator(mount){
       pkgGrid.appendChild(btn);
     });
     phNote.textContent = list.length === 0
-      ? "No single phase systems available for this inverter — select three phase."
+      ? (ph === "three"
+          ? "No three phase systems available for this inverter — select single phase."
+          : "No single phase systems available for this inverter — select three phase.")
       : (ph === "single" ? "Single phase systems available up to 7.2 kWp." : "");
     pkgReset.style.display = selKwp !== null ? "inline-flex" : "none";
   }
@@ -1448,7 +1447,8 @@ function renderCalculator(mount){
       pkg = PRICE_DATA[brand].packages.find(p => p.kwp === selKwp);
       phaseUsed = (phase === "single" && pkg && pkg.sp) ? "single" : (phase === "auto" ? (pkg && pkg.phase === "three" ? "three" : "single") : phase);
       if (phaseUsed === "single" && !(pkg && pkg.sp)) phaseUsed = "three";
-      atapPrice = pkg ? ((phaseUsed === "single" && pkg.sp) ? pkg.sp : pkg.tp) : 0;
+      if (phaseUsed === "three" && pkg && pkg.tp === null) phaseUsed = "single";
+      atapPrice = pkg ? ((phaseUsed === "single" && pkg.sp) ? pkg.sp : (pkg.tp || pkg.sp)) : 0;
       okapi = OKAPI_DATA[selKwp] || OKAPI_DATA[12.0];
       note = "Customer-selected " + selKwp + " kWp system.";
     } else {
