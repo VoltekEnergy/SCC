@@ -235,7 +235,7 @@
   .pkg-phase-note{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5}
 
   /* PHASE TOGGLE */
-  .phase-toggle{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .phase-toggle{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 
   /* BATTERY SELECTOR */
   .bat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
@@ -1139,11 +1139,9 @@ function renderCalculator(mount){
     <div class="input-card">
       <div class="input-card-title">🔌 Phase Type</div>
       <div class="phase-toggle seg cb-phaseseg">
-        <button type="button" data-ph="auto" class="active">Auto-detect</button>
-        <button type="button" data-ph="single">Single phase</button>
+        <button type="button" data-ph="single" class="active">Single phase</button>
         <button type="button" data-ph="three">Three phase</button>
       </div>
-      <div class="calc-hint" style="margin-top:8px">Auto-detect picks phase based on system size. Choose manually if you know yours.</div>
     </div>
 
     <!-- STEP 4: Brand -->
@@ -1177,7 +1175,7 @@ function renderCalculator(mount){
     </div>
 
     <!-- STEP 6: Batteries -->
-    <div class="input-card">
+    <div class="input-card cb-battery-card">
       <div class="input-card-title">🔋 Add Battery Storage</div>
       <div class="bat-grid cb-batgrid"></div>
       <div class="calc-hint cb-bat-hint" style="margin-top:8px"></div>
@@ -1232,7 +1230,7 @@ function renderCalculator(mount){
 
   // ── state ──────────────────────────────────────────────────────────────────
   let brand = "hoymiles";
-  let phase = "auto";
+  let phase = "single";
   let ev    = "no";
   let selKwp = null;   // null = auto from bill
   let batteries = 0;
@@ -1253,6 +1251,7 @@ function renderCalculator(mount){
   const pkgReset  = box.querySelector(".cb-pkg-reset");
   const batGrid   = box.querySelector(".cb-batgrid");
   const batHint   = box.querySelector(".cb-bat-hint");
+  const batCard   = box.querySelector(".cb-battery-card");
   const result    = box.querySelector(".cb-result");
   const meterBtns = [...box.querySelectorAll(".cb-meterseg button")];
   const meterManual = box.querySelector(".cb-meter-manual");
@@ -1368,21 +1367,7 @@ function renderCalculator(mount){
         brand = firstVisible.dataset.brand;
         brandBtns.forEach(x => x.classList.toggle("active", x === firstVisible));
         // Re-apply battery availability for the new brand
-        const noBat = PRICE_DATA[brand] && PRICE_DATA[brand].noBattery;
-        if (noBat) {
-          batteries = 0;
-          [...batGrid.querySelectorAll(".bat-btn")].forEach((btn, i) => {
-            btn.style.opacity = i === 0 ? "1" : "0.35";
-            btn.style.pointerEvents = i === 0 ? "" : "none";
-            if (i === 0) btn.classList.add("active");
-            else btn.classList.remove("active");
-          });
-          batHint.textContent = "Sungrow — batteries not available for this inverter.";
-        } else {
-          [...batGrid.querySelectorAll(".bat-btn")].forEach(btn => {
-            btn.style.opacity = ""; btn.style.pointerEvents = "";
-          });
-        }
+        syncBatteryUI();
       }
     }
   }
@@ -1398,24 +1383,23 @@ function renderCalculator(mount){
     brand = b.dataset.brand;
     brandBtns.forEach(x => x.classList.remove("active"));
     b.classList.add("active");
-    // Sungrow: no batteries
+    syncBatteryUI();
+    refreshGrids();
+  });
+
+  function syncBatteryUI() {
+    // Sungrow (noBattery): hide the whole Add Battery card
     const noBat = PRICE_DATA[brand] && PRICE_DATA[brand].noBattery;
     if (noBat) {
       batteries = 0;
-      [...batGrid.querySelectorAll(".bat-btn")].forEach((btn, i) => {
-        btn.style.opacity = i === 0 ? "1" : "0.35";
-        btn.style.pointerEvents = i === 0 ? "" : "none";
-        if (i === 0) btn.classList.add("active");
-        else btn.classList.remove("active");
-      });
-      batHint.textContent = "Sungrow — batteries not available for this inverter.";
+      batCard.style.display = "none";
     } else {
+      batCard.style.display = "";
       [...batGrid.querySelectorAll(".bat-btn")].forEach(btn => {
         btn.style.opacity = ""; btn.style.pointerEvents = "";
       });
     }
-    refreshGrids();
-  });
+  }
 
   evBtns.forEach(b => b.onclick = () => {
     ev = b.dataset.ev;
@@ -1443,6 +1427,7 @@ function renderCalculator(mount){
 
   // ── initial render ────────────────────────────────────────────────────────
   updateBrandVisibility();
+  syncBatteryUI();
   refreshGrids();
 
   // ── calculate ─────────────────────────────────────────────────────────────
