@@ -727,9 +727,8 @@ function toast(msg, err){
 const PRICE_DATA = {
   // ≤12 kWp: PV_System_proposal_11_6.xlsx outright prices (recommended, from TNB bill)
   // ≥13.2 kWp: Aspire ATAP prices (upgrade grid, customer request only)
-  // Deye/Sungrow battery: flat RM 6,500/5kWh | Huawei: 1st RM15,000 + RM9,400 each | Hoymiles: flat RM 5,000/5kWh
+  // Battery pricing is now uniform across all battery-capable brands — see BATTERY_TIERS below.
   deye: {
-    battery5kwh: 6500,
     packages: [
       // ── ≤12 kWp: Full Aspire Deye prices (SP and TP) ──
       {kwp:5.4,  panels:9,  sp:16199, tp:16199, bat5sp:22699, bat10sp:29199, bat15sp:35699, bat5tp:22699, bat10tp:29199, bat15tp:35699, phase:"both"},
@@ -754,7 +753,6 @@ const PRICE_DATA = {
     ]
   },
   sungrow: {
-    battery5kwh: 6500,
     noBattery: true,
     packages: [
       // ── Sungrow: single phase only (4.2 / 4.8 / 6.0 kWp) ──
@@ -764,11 +762,6 @@ const PRICE_DATA = {
     ]
   },
   huawei: {
-    battery5kwh_first: 15000,
-    battery5kwh_add:   9400,
-    battery5kwhOkapiFirst: 16200,  // OKAPI 1st battery
-    battery5kwhOkapiAdd:   10152,  // OKAPI 2nd+ battery
-    battery_ctrl:      18300,
     packages: [
       // ── ≤12 kWp: Full Aspire Huawei prices ──
       {kwp:5.4,  panels:9,  sp:null, tp:16199, bat5sp:null, bat10sp:null, bat15sp:null, bat5tp:31199, bat10tp:40599, bat15tp:49999, phase:"three"},
@@ -793,8 +786,6 @@ const PRICE_DATA = {
     ]
   },
   hoymiles: {
-    battery5kwh: 6500,       // standard / SuRIA Prime price per 5kWh
-    battery5kwhOkapi: 7020,  // OKAPI plan price per 5kWh
     packages: [
       // ── ≤12 kWp: Hoymiles has own prices for all sizes (SP and TP) ──
       {kwp:5.4,  panels:9,  sp:16199, tp:16199, bat5sp:21199, bat10sp:26199, bat15sp:31199, bat5tp:21199, bat10tp:26199, bat15tp:31199, phase:"both"},
@@ -848,6 +839,33 @@ const OKAPI_DATA = {
 
 const VOLTEK_REBATE = 2000;
 
+// Battery pricing (SuRIA Prime / outright basis) — same across all battery-capable inverters
+// (Deye/Aspire, Huawei, Hoymiles). Sungrow has no battery option (PRICE_DATA.sungrow.noBattery).
+// Tier 3 (16kWh) is a single larger battery unit, not 3× the 6kWh unit — its price doesn't scale
+// linearly, so for the savings-rate bonus and any "battery ×" wording it counts as 1 battery.
+const BATTERY_TIERS = [
+  { n:0, kwh:0,  price:0,     units:0 },
+  { n:1, kwh:6,  price:7500,  units:1 },
+  { n:2, kwh:12, price:15000, units:2 },
+  { n:3, kwh:16, price:17000, units:1 },
+];
+// SuRIA RAKYAT / OKAPI battery price = SuRIA Prime battery price ÷ 0.9259259259259259 (≈ ×1.08)
+const OKAPI_BATTERY_FACTOR = 0.9259259259259259;
+
+// Huawei reverted to its own package-bundled battery pricing (pre-unification), using the
+// original 5kWh/10kWh/15kWh tier naming (bat5tp/bat10tp/bat15tp columns in PRICE_DATA.huawei).
+// Unlike the unified BATTERY_TIERS, this is linear: each tier is n physical 5kWh batteries,
+// so the saving-rate bonus is +10% per battery (tier 3 = +30%, not capped at +10% like others).
+const HUAWEI_BATTERY_TIERS = [
+  { n:0, kwh:0,  units:0 },
+  { n:1, kwh:5,  units:1 },
+  { n:2, kwh:10, units:2 },
+  { n:3, kwh:15, units:3 },
+];
+function getBatteryTierInfo(brand, n) {
+  return (brand === "huawei" ? HUAWEI_BATTERY_TIERS[n] : BATTERY_TIERS[n]) || BATTERY_TIERS[0];
+}
+
 const EV_RATIOS = [
   {value:"50/50", label:"50 / 50 — balanced day & night"},
   {value:"33/67", label:"33 / 67 — mostly night"},
@@ -855,10 +873,18 @@ const EV_RATIOS = [
 ];
 const RM = n => "RM " + Math.round(n).toLocaleString();
 
-function getBatteryCost(brand, batteries) {
-  if (batteries === 0) return 0;
-  if (brand === "huawei") return PRICE_DATA.huawei.battery5kwh_first + Math.max(0, batteries - 1) * PRICE_DATA.huawei.battery5kwh_add;
-  return batteries * (PRICE_DATA[brand]?.battery5kwh || 6500); // deye: 6500, hoymiles: 5000
+function getBatteryCost(brand, batteries, pkg, phase) {
+  if (PRICE_DATA[brand] && PRICE_DATA[brand].noBattery) return 0;
+  if (brand === "huawei") {
+    // Huawei: battery cost is bundled per package size (bat5tp/bat10tp/bat15tp), not flat.
+    if (!pkg || batteries === 0) return 0;
+    const base = getPackagePrice(brand, pkg, phase, 0);
+    const bundled = getPackagePrice(brand, pkg, phase, batteries);
+    if (base == null || bundled == null) return 0;
+    return bundled - base;
+  }
+  const tier = BATTERY_TIERS[batteries];
+  return tier ? tier.price : 0;
 }
 
 function getPackagePrice(brand, pkg, phase, batteries) {
@@ -868,17 +894,16 @@ function getPackagePrice(brand, pkg, phase, batteries) {
   if (batteries === 1) return isSingle ? pkg.bat5sp  : pkg.bat5tp;
   if (batteries === 2) return isSingle ? pkg.bat10sp : pkg.bat10tp;
   if (batteries === 3) return isSingle ? pkg.bat15sp : pkg.bat15tp;
-  // fallback for >3: add flat addon per extra battery
+  // fallback for >3: add flat addon per extra battery, using the base tier price
   const base3 = isSingle ? pkg.bat15sp : pkg.bat15tp;
-  const addon = brand === "deye" ? PRICE_DATA.deye.battery5kwh : PRICE_DATA.huawei.battery5kwh_addon;
+  const addon = BATTERY_TIERS[1].price;
   return base3 + (batteries - 3) * addon;
 }
 
 function getBatteryLabel(brand) {
-  if (brand === "huawei") return `1st battery: ${RM(PRICE_DATA.huawei.battery5kwh_first)} · 2nd+: ${RM(PRICE_DATA.huawei.battery5kwh_add)} per 5kWh`;
-  if (brand === "sungrow") return "Sungrow — batteries not available for this inverter.";
-  const bat = PRICE_DATA[brand]?.battery5kwh || 6500;
-  return `${RM(bat)} per 5kWh`;
+  if (PRICE_DATA[brand] && PRICE_DATA[brand].noBattery) return "Batteries not available for this inverter.";
+  if (brand === "huawei") return "5kWh / 10kWh / 15kWh — bundled pricing per system size, +10% saving rate per battery.";
+  return "RM 7,500 (6kWh) · RM 15,000 (12kWh) · RM 17,000 (16kWh, single battery)";
 }
 
 function pickPackage(avg, userPhase, brand) {
@@ -944,31 +969,26 @@ function computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phase, mete
   meterCost = meterCost || 0;
   addWork = addWork || 0;
   const suria = suriaRebate(pkg && pkg.kwp ? pkg.kwp : 12);
-  // Battery cost: Sungrow has no battery; Huawei 1st=15000 +9400 each; Deye/Sungrow flat 6500
+  // Battery cost: Sungrow has no battery; Huawei uses its own bundled package prices;
+  // Deye and Hoymiles share the unified BATTERY_TIERS pricing.
   const noBat = PRICE_DATA[brand] && PRICE_DATA[brand].noBattery;
   const effBat = noBat ? 0 : batteries;
-  const batCost = getBatteryCost(brand, effBat);
+  const batCost = getBatteryCost(brand, effBat, pkg, phase);
+  const batTier = getBatteryTierInfo(brand, effBat);
+  const batUnits = batTier.units;   // Huawei: linear (n batteries) · others: tier 3 counts as 1
+  const batKwh = batTier.kwh;
 
-  // Saving: capped at the bill (can't save more than you spend)
-  const effPct = (okapi.savePct || 0) + 10 * effBat;
+  // Saving: capped at the bill (can't save more than you spend). Bonus is per physical
+  // battery unit (batUnits), not per selector tier, so the 16kWh option gives +10%, same as 6kWh.
+  const effPct = (okapi.savePct || 0) + 10 * batUnits;
   const save = Math.min(Math.round(a * effPct / 100), Math.round(a));
   const billAfter = Math.max(Math.round(a - save), 0);
 
   // OKAPI installment: fallback okapiPrice → atapPrice if missing.
   // Meter phase upgrade cost is NOT part of the OKAPI installment — it only applies to outright.
-  // OKAPI battery price differs from Prime: Hoymiles RM 7,020/5kWh under OKAPI (RM 6,500 Prime).
+  // OKAPI battery price = SuRIA Prime battery price ÷ OKAPI_BATTERY_FACTOR (same across all brands).
   const okapiBase = (okapi.okapiPrice || atapPrice);
-  let okapiBatCost = 0;
-  if (effBat > 0) {
-    const bd = PRICE_DATA[brand] || {};
-    if (bd.battery5kwhOkapiFirst) {
-      okapiBatCost = bd.battery5kwhOkapiFirst + Math.max(0, effBat - 1) * (bd.battery5kwhOkapiAdd || bd.battery5kwhOkapiFirst);
-    } else if (bd.battery5kwhOkapi) {
-      okapiBatCost = effBat * bd.battery5kwhOkapi;
-    } else {
-      okapiBatCost = batCost;
-    }
-  }
+  const okapiBatCost = effBat > 0 ? Math.round(batCost / OKAPI_BATTERY_FACTOR) : 0;
   const okapiSystemPrice = okapiBase + okapiBatCost + addWork;
   const installment = (effBat > 0 || addWork > 0)
     ? Math.round(okapiSystemPrice * 1.54 / 120)
@@ -987,7 +1007,7 @@ function computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phase, mete
   const cardRoi = save > 0 ? (cardInvest / save / 12) : 0;
 
   return {
-    batteries: effBat, batCost, meterCost, save, billAfter, installment, totalPayment, invest, roiYears,
+    batteries: effBat, batCost, batteryKwh: batKwh, batteryUnits: batUnits, meterCost, save, billAfter, installment, totalPayment, invest, roiYears,
     okapiSystemPrice, okapiBatCost, suria, addWork,
     cardCharge, cardOverflow, cardTotal, cardInvest, cardRoi, cashflow: (save - installment),
     atapPrice, bundledPrice: atapPrice + batCost + meterCost + addWork
@@ -1015,7 +1035,7 @@ function calcCardHtml(st, opts){
   const reqTag = st.requested ? " · Customer Selected" : "";
   let sysLine = `${brandLabel} inverter · ${st.pkg.kwp} kWp · ${st.pkg.panels} panels · ${st.phase==="single"?"Single":"Three"} Phase${reqTag}`;
   let evLine = `EV: ${st.ev==="yes"?"Yes":"No"} · Day/Night: ${st.ratio||"50/50"}`;
-  if(st.batteries) evLine += ` · ${batWord(st.batteries)} (+${RM(st.batCost)})`;
+  if(st.batteries) evLine += ` · ${batWord(st.batteryUnits)} (${st.batteryKwh}kWh, +${RM(st.batCost)})`;
   else evLine += ` · no battery`;
   return `
     <div class="calc-reco">
@@ -1036,7 +1056,7 @@ function calcCardHtml(st, opts){
     <div class="plan-grid">
       <div class="plan rakyat">
         <div class="plan-h">SuRIA RAKYAT · OKAPI Installment</div>
-        <div class="plan-row"><span>System Price OKAPI${st.batteries?` (incl. ${batWord(st.batteries)})`:""}${st.addWork?" incl. additional work":""}</span><b>${RM(st.okapiSystemPrice)}</b></div>
+        <div class="plan-row"><span>System Price OKAPI${st.batteries?` (incl. ${batWord(st.batteryUnits)})`:""}${st.addWork?" incl. additional work":""}</span><b>${RM(st.okapiSystemPrice)}</b></div>
         ${st.addWork?`<div class="plan-row"><span>— Additional work: ${st.addWorkDesc||"as agreed"}</span><b>${RM(st.addWork)}</b></div>`:""}
         <div class="plan-row"><span>Voltek Rebate</span><b>− ${RM(VOLTEK_REBATE)}</b></div>
         <div class="plan-row hl"><span>Final Price (OKAPI)</span><b>${RM(st.okapiSystemPrice - VOLTEK_REBATE)}</b></div>
@@ -1049,7 +1069,7 @@ function calcCardHtml(st, opts){
         <div class="plan-h">SuRIA PRIME · Outright Purchase</div>
         <div class="plan-row"><span>System price</span><b>${RM(st.atapPrice)}</b></div>
         <div class="plan-row"><span>Voltek rebate</span><b>− ${RM(VOLTEK_REBATE)}</b></div>
-        ${st.batteries ? `<div class="plan-row"><span>Battery × ${st.batteries} (${st.batteries*5}kWh)</span><b>+ ${RM(st.batCost)}</b></div>` : ""}
+        ${st.batteries ? `<div class="plan-row"><span>Battery × ${st.batteryUnits} (${st.batteryKwh}kWh)</span><b>+ ${RM(st.batCost)}</b></div>` : ""}
         ${st.meterCost ? `<div class="plan-row"><span>Meter phase upgrade* (${st.meterType==="wall"?"Wall-mounted":st.meterType==="gate"?"Gate Area":"Manual"})</span><b>+ ${RM(st.meterCost)}</b></div>` : ""}
         ${st.addWork ? `<div class="plan-row"><span>Additional work${st.addWorkDesc?` (${st.addWorkDesc})`:""}</span><b>+ ${RM(st.addWork)}</b></div>` : ""}
         <div class="plan-row hl"><span>Total Payment</span><b>${RM(st.totalPayment)}</b></div>
@@ -1070,7 +1090,7 @@ function renderCalcResult(result, st){
     <div class="calc-card">
       ${calcCardHtml(st)}
       <div class="cb-actions">
-        <button type="button" class="btn ghost cb-compare">⚖ Compare 0–2 batteries</button>
+        <button type="button" class="btn ghost cb-compare">⚖ Compare battery options</button>
         <button type="button" class="btn cb-pdf">⬇ Download as PDF</button>
       </div>
       <div class="cb-compare-out"></div>
@@ -1083,13 +1103,16 @@ function renderCalcResult(result, st){
 function renderBatteryCompare(host, st){
   if(host.dataset.open==="1"){ host.innerHTML=""; host.dataset.open="0"; return; }
   host.dataset.open="1";
-  host.innerHTML = `<div class="cmp-title">Full comparison · ${st.pkg.kwp} kWp (${st.brand.charAt(0).toUpperCase()+st.brand.slice(1)}) — 0, 1 and 2 batteries</div>
+  host.innerHTML = `<div class="cmp-title">Full comparison · ${st.pkg.kwp} kWp (${st.brand.charAt(0).toUpperCase()+st.brand.slice(1)}) — no battery, 6kWh, 12kWh &amp; 16kWh options</div>
     <div class="cmp-reco-top">⭐ Recommended: the <b>no-battery</b> system — lowest upfront cost and fastest payback.</div>`;
-  [0,1,2].forEach(n=>{
+  [0,1,2,3].forEach(n=>{
     const e = computeEstimate(st.a, st.brand, st.pkg, st.atapPrice, st.okapi, n, st.phase, st.meterCost, st.addWork);
     const cst = {...st, ...e, batteries:n};
     const card = el("div","calc-card cmp-card"+(n===0?" reco":""));
-    const label = n===0 ? "Option A · No battery ⭐ Recommended" : `Option ${n===1?"B":"C"} · ${n} batter${n>1?"ies":"y"}`;
+    const optLetter = ["A","B","C","D"][n];
+    const label = n===0 ? "Option A · No battery ⭐ Recommended"
+      : n===3 ? "Option D · 16kWh battery (1 unit)"
+      : `Option ${optLetter} · ${n} batter${n>1?"ies":"y"} (${e.batteryKwh}kWh)`;
     card.innerHTML = calcCardHtml(cst, {heading:label});
     host.appendChild(card);
   });
@@ -1153,11 +1176,11 @@ function renderCalculator(mount){
       <div class="brand-row">
         <button type="button" class="brand-btn hoymiles active" data-brand="hoymiles">
           <div class="bb-logo" style="color:#e6a800">HOYMILES</div>
-          <div class="bb-sub">Battery: RM 6,500 / 5kWh</div>
+          <div class="bb-sub">Battery: from RM 7,500 (6kWh)</div>
         </button>
         <button type="button" class="brand-btn huawei" data-brand="huawei">
           <div class="bb-logo" style="color:#cc0000">HUAWEI</div>
-          <div class="bb-sub">Battery: RM 15,000 1st · RM 9,400 add</div>
+          <div class="bb-sub">Battery: from RM 7,500 (6kWh)</div>
         </button>
         <button type="button" class="brand-btn sungrow" data-brand="sungrow">
           <div class="bb-logo" style="color:#0077cc">SUNGROW</div>
@@ -1329,12 +1352,15 @@ function renderCalculator(mount){
       : null;
     [0,1,2,3].forEach(n => {
       let costLabel = "—";
-      if (n > 0) costLabel = "+"+RM(getBatteryCost(brand, n));
+      if (n > 0) costLabel = activePkg
+        ? "+"+RM(getBatteryCost(brand, n, activePkg, phase))
+        : (brand === "huawei" ? "select size" : "+"+RM(getBatteryCost(brand, n)));
+      const tierInfo = getBatteryTierInfo(brand, n);
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "bat-btn" + (n === batteries ? " active" : "");
-      btn.innerHTML = `<span class="bb-n">${n}</span>
-        <span class="bb-kwh">${n===0 ? "no battery" : n*5+"kWh"}</span>
+      btn.innerHTML = `<span class="bb-n">${tierInfo.units}</span>
+        <span class="bb-kwh">${n===0 ? "no battery" : tierInfo.kwh+"kWh"}</span>
         <span class="bb-cost">${costLabel}</span>`;
       btn.onclick = () => {
         batteries = n;
@@ -1559,12 +1585,13 @@ function downloadComparePdf(st){
   if(st.custAddr){ const al=doc.splitTextToSize("Address: "+st.custAddr, W-2*M); doc.text(al,M,y); y+=5*al.length; }
   doc.text("Average TNB bill: "+RM(st.a)+" / month   ·   System: "+st.pkg.kwp+" kWp   ·   "+(st.phase==="single"?"Single":"Three")+" phase", M, y); y+=8;
 
-  const opts=[0,1,2].map(n=>({n, e:computeEstimate(st.a, st.brand, st.pkg, st.atapPrice, st.okapi, n, st.phase, st.meterCost, st.addWork)}));
+  const opts=[0,1,2,3].map(n=>({n, e:computeEstimate(st.a, st.brand, st.pkg, st.atapPrice, st.okapi, n, st.phase, st.meterCost, st.addWork)}));
   const recoCol=0;
-  const labelW=64, colW=(W-2*M-labelW)/3;
+  const nCols=opts.length;
+  const labelW=56, colW=(W-2*M-labelW)/nCols;
   const colX=i=> M+labelW+i*colW;
   const rowH=7.6;
-  const titles=["No battery","1 battery","2 batteries"];
+  const titles=["No battery","6kWh (1 batt.)","12kWh (2 batt.)","16kWh (1 batt.)"];
 
   function drawTable(title, startY, rows, accent){
     let yy=startY;
@@ -1573,21 +1600,21 @@ function downloadComparePdf(st){
     const headTop=yy, n=rows.length;
     doc.setFillColor(...reco); doc.rect(colX(recoCol), headTop, colW, (n+1)*rowH, "F");
     doc.setFillColor(...navy); doc.rect(M, yy, labelW, rowH, "F");
-    for(let i=0;i<3;i++){ if(i!==recoCol){ doc.setFillColor(30,44,74); doc.rect(colX(i), yy, colW, rowH, "F"); } }
+    for(let i=0;i<nCols;i++){ if(i!==recoCol){ doc.setFillColor(30,44,74); doc.rect(colX(i), yy, colW, rowH, "F"); } }
     doc.setFillColor(...orange); doc.rect(colX(recoCol), yy, colW, rowH, "F");
     doc.setTextColor(255,255,255); doc.setFontSize(8.5); doc.setFont(undefined,"bold");
-    for(let i=0;i<3;i++){
-      doc.setFontSize(8.5); doc.setFont(undefined,"bold");
+    for(let i=0;i<nCols;i++){
+      doc.setFontSize(7.5); doc.setFont(undefined,"bold");
       doc.text(titles[i], colX(i)+colW/2, yy+(i===recoCol?rowH-4.4:rowH-2.6), {align:"center"});
       if(i===recoCol){ doc.setFontSize(6.5); doc.setFont(undefined,"normal"); doc.text("RECOMMENDED", colX(i)+colW/2, yy+rowH-1.4, {align:"center"}); }
     }
     yy+=rowH;
     rows.forEach((r,ri)=>{
       if(ri%2===1){ doc.setFillColor(245,247,250); doc.rect(M, yy, labelW, rowH, "F");
-        for(let i=0;i<3;i++) if(i!==recoCol) doc.rect(colX(i), yy, colW, rowH, "F"); }
+        for(let i=0;i<nCols;i++) if(i!==recoCol) doc.rect(colX(i), yy, colW, rowH, "F"); }
       doc.setTextColor(...muted); doc.setFontSize(8.5); doc.setFont(undefined,"normal");
       doc.text(r.label, M+3, yy+rowH-2.6);
-      for(let i=0;i<3;i++){
+      for(let i=0;i<nCols;i++){
         doc.setTextColor(20,28,40);
         doc.setFont(undefined, (i===recoCol||r.bold)?"bold":"normal"); doc.setFontSize(8.5);
         doc.text(String(r.val(opts[i])), colX(i)+colW-3, yy+rowH-2.6, {align:"right"});
@@ -1692,7 +1719,7 @@ function drawEstimatePage(doc, st, opts){
   doc.text(bdLabel+st.pkg.kwp+" kWp  ·  "+st.pkg.panels+" panels  ·  "+(st.phase==="single"?"Single":"Three")+" Phase", M, y); y+=7;
   doc.setFontSize(10); doc.setFont(undefined,"normal"); doc.setTextColor(...muted);
   doc.text(st.batteries
-    ? (st.batteries+(st.batteries>1?" batteries":" battery")+" ("+RM(st.batCost)+" · saving rate +"+(st.batteries*10)+"%)")
+    ? (st.batteryUnits+(st.batteryUnits>1?" batteries":" battery")+" ("+st.batteryKwh+"kWh · "+RM(st.batCost)+" · saving rate +"+(st.batteryUnits*10)+"%)")
     : "No additional battery", M, y); y+=6;
   if(st.note){ doc.setTextColor(...orange); doc.text("Note: "+st.note, M, y, {maxWidth:W-2*M}); y+=8; }
   y+=2;
@@ -1709,7 +1736,7 @@ function drawEstimatePage(doc, st, opts){
 
   if (showRakyat) {
     section("PLAN A — SuRIA RAKYAT (OKAPI INSTALLMENT)");
-    line("Monthly installment"+(st.batteries?(" (incl. "+st.batteries+(st.batteries>1?" batteries":" battery")+")"):"")+""  , RM(st.installment));
+    line("Monthly installment"+(st.batteries?(" (incl. "+st.batteryUnits+(st.batteryUnits>1?" batteries":" battery")+")"):"")+""  , RM(st.installment));
     line("Monthly saving", RM(st.save));
     line("Positive cashflow / month", (st.cashflow>=0?"+":"")+RM(st.cashflow), true);
     line("Installment tenure", "10 years");
@@ -1722,7 +1749,7 @@ function drawEstimatePage(doc, st, opts){
     section("SuRIA PRIME"+brandLbl+" · Outright Purchase");
     line("System price", RM(st.atapPrice));
     line("Voltek rebate", "- "+RM(VOLTEK_REBATE));
-    if(st.batteries) line("Battery × "+st.batteries+" ("+st.batteries*5+"kWh)", "+ "+RM(st.batCost));
+    if(st.batteries) line("Battery × "+st.batteryUnits+" ("+st.batteryKwh+"kWh)", "+ "+RM(st.batCost));
     if(st.meterCost) line("Meter phase upgrade* ("+(st.meterType==="wall"?"Wall-mounted":st.meterType==="gate"?"Gate Area":"Manual")+")", "+ "+RM(st.meterCost));
     if(st.addWork) line("Additional work"+(st.addWorkDesc?" ("+st.addWorkDesc+")":""), "+ "+RM(st.addWork));
     line("Total Payment", RM(st.totalPayment), true);
