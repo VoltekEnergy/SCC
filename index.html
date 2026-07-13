@@ -1103,7 +1103,8 @@ function renderCalcResult(result, st){
 function renderBatteryCompare(host, st){
   if(host.dataset.open==="1"){ host.innerHTML=""; host.dataset.open="0"; return; }
   host.dataset.open="1";
-  host.innerHTML = `<div class="cmp-title">Full comparison · ${st.pkg.kwp} kWp (${st.brand.charAt(0).toUpperCase()+st.brand.slice(1)}) — no battery, 6kWh, 12kWh &amp; 16kWh options</div>
+  const capLabel = st.brand === "huawei" ? "no battery, 5kWh, 10kWh &amp; 15kWh options" : "no battery, 6kWh, 12kWh &amp; 16kWh options";
+  host.innerHTML = `<div class="cmp-title">Full comparison · ${st.pkg.kwp} kWp (${st.brand.charAt(0).toUpperCase()+st.brand.slice(1)}) — ${capLabel}</div>
     <div class="cmp-reco-top">⭐ Recommended: the <b>no-battery</b> system — lowest upfront cost and fastest payback.</div>`;
   [0,1,2,3].forEach(n=>{
     const e = computeEstimate(st.a, st.brand, st.pkg, st.atapPrice, st.okapi, n, st.phase, st.meterCost, st.addWork);
@@ -1111,7 +1112,7 @@ function renderBatteryCompare(host, st){
     const card = el("div","calc-card cmp-card"+(n===0?" reco":""));
     const optLetter = ["A","B","C","D"][n];
     const label = n===0 ? "Option A · No battery ⭐ Recommended"
-      : n===3 ? "Option D · 16kWh battery (1 unit)"
+      : (n===3 && st.brand !== "huawei") ? "Option D · 16kWh battery (1 unit)"
       : `Option ${optLetter} · ${n} batter${n>1?"ies":"y"} (${e.batteryKwh}kWh)`;
     card.innerHTML = calcCardHtml(cst, {heading:label});
     host.appendChild(card);
@@ -1180,7 +1181,7 @@ function renderCalculator(mount){
         </button>
         <button type="button" class="brand-btn huawei" data-brand="huawei">
           <div class="bb-logo" style="color:#cc0000">HUAWEI</div>
-          <div class="bb-sub">Battery: from RM 7,500 (6kWh)</div>
+          <div class="bb-sub">Battery: bundled per size (5/10/15kWh)</div>
         </button>
         <button type="button" class="brand-btn sungrow" data-brand="sungrow">
           <div class="bb-logo" style="color:#0077cc">SUNGROW</div>
@@ -1591,7 +1592,7 @@ function downloadComparePdf(st){
   const labelW=56, colW=(W-2*M-labelW)/nCols;
   const colX=i=> M+labelW+i*colW;
   const rowH=7.6;
-  const titles=["No battery","6kWh (1 batt.)","12kWh (2 batt.)","16kWh (1 batt.)"];
+  const titles=opts.map(o => o.n===0 ? "No battery" : `${o.e.batteryKwh}kWh (${o.e.batteryUnits} batt.)`);
 
   function drawTable(title, startY, rows, accent){
     let yy=startY;
