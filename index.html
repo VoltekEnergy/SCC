@@ -1352,9 +1352,45 @@ function renderCalculator(mount){
     refreshGrids();
   });
 
+  function updateBrandVisibility() {
+    // Single phase → hide Huawei (no SP systems) · Three phase → hide Sungrow (SP only)
+    brandBtns.forEach(b => {
+      const bd = b.dataset.brand;
+      const hide = (phase === "single" && bd === "huawei") ||
+                   (phase === "three"  && bd === "sungrow");
+      b.style.display = hide ? "none" : "";
+    });
+    // If the currently selected brand just got hidden, switch to the first visible one
+    const activeBtn = brandBtns.find(b => b.dataset.brand === brand);
+    if (activeBtn && activeBtn.style.display === "none") {
+      const firstVisible = brandBtns.find(b => b.style.display !== "none");
+      if (firstVisible) {
+        brand = firstVisible.dataset.brand;
+        brandBtns.forEach(x => x.classList.toggle("active", x === firstVisible));
+        // Re-apply battery availability for the new brand
+        const noBat = PRICE_DATA[brand] && PRICE_DATA[brand].noBattery;
+        if (noBat) {
+          batteries = 0;
+          [...batGrid.querySelectorAll(".bat-btn")].forEach((btn, i) => {
+            btn.style.opacity = i === 0 ? "1" : "0.35";
+            btn.style.pointerEvents = i === 0 ? "" : "none";
+            if (i === 0) btn.classList.add("active");
+            else btn.classList.remove("active");
+          });
+          batHint.textContent = "Sungrow — batteries not available for this inverter.";
+        } else {
+          [...batGrid.querySelectorAll(".bat-btn")].forEach(btn => {
+            btn.style.opacity = ""; btn.style.pointerEvents = "";
+          });
+        }
+      }
+    }
+  }
+
   phBtns.forEach(b => b.onclick = () => {
     phase = b.dataset.ph;
     phBtns.forEach(x => x.classList.toggle("active", x === b));
+    updateBrandVisibility();
     refreshGrids();
   });
 
@@ -1406,6 +1442,7 @@ function renderCalculator(mount){
   };
 
   // ── initial render ────────────────────────────────────────────────────────
+  updateBrandVisibility();
   refreshGrids();
 
   // ── calculate ─────────────────────────────────────────────────────────────
