@@ -1447,7 +1447,7 @@ function renderCalculator(mount){
     let pkg, phaseUsed, atapPrice, okapi, note = "", phaseNote = "", isRequested = false;
 
     if (selKwp !== null && selKwp >= 13.2) {
-      // ── Customer-selected larger system (≥13.2 kWp, no OKAPI data available) ──
+      // ── Customer-selected larger system (≥13.2 kWp) ──
       isRequested = true;
       pkg = PRICE_DATA[brand].packages.find(p => p.kwp === selKwp);
       phaseUsed = "three";
@@ -1455,12 +1455,13 @@ function renderCalculator(mount){
       // savePct scaled from 12 kWp base rate, proportional to selected size
       const BASE_SAVE_PCT = OKAPI_DATA[12.0] ? OKAPI_DATA[12.0].savePct : 69.2;
       const scaledSave = BASE_SAVE_PCT * selKwp / 12;
-      const okapiBase = atapPrice;
+      // OKAPI price from the SuRIA Rakyat pricelist (falls back to outright if missing)
+      const okData = OKAPI_DATA[selKwp];
       okapi = {
         savePct: scaledSave,
         okapiMonthly: 0,
-        okapiPrice: okapiBase,
-        suria: 3000
+        okapiPrice: (okData && okData.okapiPrice) || atapPrice,
+        suria: (okData && okData.suria) || 3000
       };
       note = "Customer-selected " + selKwp + " kWp system (larger than the bill suggests).";
     } else if (selKwp !== null) {
