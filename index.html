@@ -940,8 +940,9 @@ function suriaRebate(kwp){
   return Math.min(Math.floor(kwp / 1.2 + 1e-9) * 600, 3000);
 }
 
-function computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phase, meterCost) {
+function computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phase, meterCost, addWork) {
   meterCost = meterCost || 0;
+  addWork = addWork || 0;
   const suria = suriaRebate(pkg && pkg.kwp ? pkg.kwp : 12);
   // Battery cost: Sungrow has no battery; Huawei 1st=15000 +9400 each; Deye/Sungrow flat 6500
   const noBat = PRICE_DATA[brand] && PRICE_DATA[brand].noBattery;
@@ -968,18 +969,18 @@ function computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phase, mete
       okapiBatCost = batCost;
     }
   }
-  const okapiSystemPrice = okapiBase + okapiBatCost;
-  const installment = effBat > 0
+  const okapiSystemPrice = okapiBase + okapiBatCost + addWork;
+  const installment = (effBat > 0 || addWork > 0)
     ? Math.round(okapiSystemPrice * 1.54 / 120)
     : (okapi.okapiMonthly || Math.round(okapiBase * 1.54 / 120));
 
   // Outright: system price + battery + meter relocation − Voltek rebate
-  const totalPayment = atapPrice - VOLTEK_REBATE + batCost + meterCost;
+  const totalPayment = atapPrice - VOLTEK_REBATE + batCost + meterCost + addWork;
   const invest = totalPayment - suria;
   const roiYears = save > 0 ? (invest / save / 12) : 0;
 
   // Credit card: 6% on (system + battery + meter), deducted against Voltek rebate
-  const cardCharge = Math.round((atapPrice + batCost + meterCost) * 0.06 * 100) / 100;
+  const cardCharge = Math.round((atapPrice + batCost + meterCost + addWork) * 0.06 * 100) / 100;
   const cardOverflow = cardCharge > VOLTEK_REBATE ? (cardCharge - VOLTEK_REBATE) : 0;
   const cardTotal = totalPayment + cardOverflow;
   const cardInvest = cardTotal - suria;
@@ -987,9 +988,9 @@ function computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phase, mete
 
   return {
     batteries: effBat, batCost, meterCost, save, billAfter, installment, totalPayment, invest, roiYears,
-    okapiSystemPrice, okapiBatCost, suria,
+    okapiSystemPrice, okapiBatCost, suria, addWork,
     cardCharge, cardOverflow, cardTotal, cardInvest, cardRoi, cashflow: (save - installment),
-    atapPrice, bundledPrice: atapPrice + batCost + meterCost
+    atapPrice, bundledPrice: atapPrice + batCost + meterCost + addWork
   };
 }
 
@@ -1035,7 +1036,8 @@ function calcCardHtml(st, opts){
     <div class="plan-grid">
       <div class="plan rakyat">
         <div class="plan-h">SuRIA RAKYAT · OKAPI Installment</div>
-        <div class="plan-row"><span>System Price OKAPI${st.batteries?` (incl. ${batWord(st.batteries)})`:""}</span><b>${RM(st.okapiSystemPrice)}</b></div>
+        <div class="plan-row"><span>System Price OKAPI${st.batteries?` (incl. ${batWord(st.batteries)})`:""}${st.addWork?" incl. additional work":""}</span><b>${RM(st.okapiSystemPrice)}</b></div>
+        ${st.addWork?`<div class="plan-row"><span>— Additional work: ${st.addWorkDesc||"as agreed"}</span><b>${RM(st.addWork)}</b></div>`:""}
         <div class="plan-row"><span>Voltek Rebate</span><b>− ${RM(VOLTEK_REBATE)}</b></div>
         <div class="plan-row hl"><span>Final Price (OKAPI)</span><b>${RM(st.okapiSystemPrice - VOLTEK_REBATE)}</b></div>
         <div class="plan-row"><span>Inverter Brand</span><b>${st.brand.charAt(0).toUpperCase()+st.brand.slice(1)}</b></div>
@@ -1049,6 +1051,7 @@ function calcCardHtml(st, opts){
         <div class="plan-row"><span>Voltek rebate</span><b>− ${RM(VOLTEK_REBATE)}</b></div>
         ${st.batteries ? `<div class="plan-row"><span>Battery × ${st.batteries} (${st.batteries*5}kWh)</span><b>+ ${RM(st.batCost)}</b></div>` : ""}
         ${st.meterCost ? `<div class="plan-row"><span>Meter phase upgrade* (${st.meterType==="wall"?"Wall-mounted":st.meterType==="gate"?"Gate Area":"Manual"})</span><b>+ ${RM(st.meterCost)}</b></div>` : ""}
+        ${st.addWork ? `<div class="plan-row"><span>Additional work${st.addWorkDesc?` (${st.addWorkDesc})`:""}</span><b>+ ${RM(st.addWork)}</b></div>` : ""}
         <div class="plan-row hl"><span>Total Payment</span><b>${RM(st.totalPayment)}</b></div>
         <div class="plan-row"><span>SuRIA rebate</span><b>− ${RM(st.suria)}</b></div>
         <div class="plan-row hl"><span>Total Investment</span><b>${RM(st.invest)}</b></div>
@@ -1083,7 +1086,7 @@ function renderBatteryCompare(host, st){
   host.innerHTML = `<div class="cmp-title">Full comparison · ${st.pkg.kwp} kWp (${st.brand.charAt(0).toUpperCase()+st.brand.slice(1)}) — 0, 1 and 2 batteries</div>
     <div class="cmp-reco-top">⭐ Recommended: the <b>no-battery</b> system — lowest upfront cost and fastest payback.</div>`;
   [0,1,2].forEach(n=>{
-    const e = computeEstimate(st.a, st.brand, st.pkg, st.atapPrice, st.okapi, n, st.phase, st.meterCost);
+    const e = computeEstimate(st.a, st.brand, st.pkg, st.atapPrice, st.okapi, n, st.phase, st.meterCost, st.addWork);
     const cst = {...st, ...e, batteries:n};
     const card = el("div","calc-card cmp-card"+(n===0?" reco":""));
     const label = n===0 ? "Option A · No battery ⭐ Recommended" : `Option ${n===1?"B":"C"} · ${n} batter${n>1?"ies":"y"}`;
@@ -1221,6 +1224,21 @@ function renderCalculator(mount){
       </div>
     </div>
 
+    <!-- STEP 9: Additional Work -->
+    <div class="input-card">
+      <div class="input-card-title">🔧 Additional Work <span style="font-weight:400;color:var(--muted)">(optional)</span></div>
+      <div class="calc-hint" style="margin-bottom:10px;margin-top:-4px">Extra cost added to the system price in both SuRIA Rakyat and SuRIA Prime.</div>
+      <div class="field">
+        <label>Additional work cost</label>
+        <div class="bill-input-wrap"><span>RM</span>
+          <input type="number" min="0" inputmode="decimal" class="cb-addwork-cost" placeholder="e.g. 1500"/></div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>Work description (remark)</label>
+        <input type="text" class="cb-addwork-desc" placeholder="e.g. Extra cabling, roof reinforcement"/>
+      </div>
+    </div>
+
     <button type="button" class="btn block cb-go" style="font-size:16px;padding:15px">
       Calculate Solar Savings →
     </button>
@@ -1256,6 +1274,8 @@ function renderCalculator(mount){
   const meterBtns = [...box.querySelectorAll(".cb-meterseg button")];
   const meterManual = box.querySelector(".cb-meter-manual");
   const meterCostEl = box.querySelector(".cb-meter-cost");
+  const addWorkCostEl = box.querySelector(".cb-addwork-cost");
+  const addWorkDescEl = box.querySelector(".cb-addwork-desc");
 
   const avg = () => {
     const v = bills.map(i=>parseFloat(i.value)).filter(n=>!isNaN(n)&&n>0);
@@ -1486,14 +1506,16 @@ function renderCalculator(mount){
     }
 
     const ratio = ratioSel.value;
-    const e = computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phaseUsed, meterCost);
+    const addWork = parseFloat(addWorkCostEl.value) || 0;
+    const addWorkDesc = (addWorkDescEl.value || "").trim();
+    const e = computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phaseUsed, meterCost, addWork);
     const st = {
       custName: (nameEl.value||"").trim(),
       custAddr: (addrEl.value||"").trim(),
       a, brand, phase: phaseUsed, phaseNote,
       pkg, atapPrice, okapi,
       note, ev, ratio, requested: isRequested,
-      meterType, meterCost,
+      meterType, meterCost, addWorkDesc,
       ...e
     };
     renderCalcResult(result, st);
@@ -1537,7 +1559,7 @@ function downloadComparePdf(st){
   if(st.custAddr){ const al=doc.splitTextToSize("Address: "+st.custAddr, W-2*M); doc.text(al,M,y); y+=5*al.length; }
   doc.text("Average TNB bill: "+RM(st.a)+" / month   ·   System: "+st.pkg.kwp+" kWp   ·   "+(st.phase==="single"?"Single":"Three")+" phase", M, y); y+=8;
 
-  const opts=[0,1,2].map(n=>({n, e:computeEstimate(st.a, st.brand, st.pkg, st.atapPrice, st.okapi, n, st.phase, st.meterCost)}));
+  const opts=[0,1,2].map(n=>({n, e:computeEstimate(st.a, st.brand, st.pkg, st.atapPrice, st.okapi, n, st.phase, st.meterCost, st.addWork)}));
   const recoCol=0;
   const labelW=64, colW=(W-2*M-labelW)/3;
   const colX=i=> M+labelW+i*colW;
@@ -1702,6 +1724,7 @@ function drawEstimatePage(doc, st, opts){
     line("Voltek rebate", "- "+RM(VOLTEK_REBATE));
     if(st.batteries) line("Battery × "+st.batteries+" ("+st.batteries*5+"kWh)", "+ "+RM(st.batCost));
     if(st.meterCost) line("Meter phase upgrade* ("+(st.meterType==="wall"?"Wall-mounted":st.meterType==="gate"?"Gate Area":"Manual")+")", "+ "+RM(st.meterCost));
+    if(st.addWork) line("Additional work"+(st.addWorkDesc?" ("+st.addWorkDesc+")":""), "+ "+RM(st.addWork));
     line("Total Payment", RM(st.totalPayment), true);
     line("SuRIA rebate", "- "+RM(st.suria));
     line("Total Investment", RM(st.invest), true);
