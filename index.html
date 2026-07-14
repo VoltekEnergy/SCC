@@ -840,14 +840,15 @@ const OKAPI_DATA = {
 const VOLTEK_REBATE = 2000;
 
 // Battery pricing (SuRIA Prime / outright basis) — same across all battery-capable inverters
-// (Deye/Aspire, Huawei, Hoymiles). Sungrow has no battery option (PRICE_DATA.sungrow.noBattery).
-// Tier 3 (16kWh) is a single larger battery unit, not 3× the 6kWh unit — its price doesn't scale
-// linearly, so for the savings-rate bonus and any "battery ×" wording it counts as 1 battery.
+// (Deye/Aspire, Hoymiles). Sungrow has no battery option (PRICE_DATA.sungrow.noBattery).
+// Tier 3 (16kWh) is a single larger battery unit, not 3× the 6kWh unit, so pricing and any
+// "battery ×" wording still count it as 1 battery — but its savings-rate bonus is boosted
+// to +30% (same as if it were 3 units) since it's the largest-capacity option.
 const BATTERY_TIERS = [
-  { n:0, kwh:0,  price:0,     units:0 },
-  { n:1, kwh:6,  price:7500,  units:1 },
-  { n:2, kwh:12, price:15000, units:2 },
-  { n:3, kwh:16, price:17000, units:1 },
+  { n:0, kwh:0,  price:0,     units:0, boostPct:0 },
+  { n:1, kwh:6,  price:7500,  units:1, boostPct:10 },
+  { n:2, kwh:12, price:15000, units:2, boostPct:20 },
+  { n:3, kwh:16, price:17000, units:1, boostPct:30 },
 ];
 // SuRIA RAKYAT / OKAPI battery price = SuRIA Prime battery price ÷ 0.9259259259259259 (≈ ×1.08)
 const OKAPI_BATTERY_FACTOR = 0.9259259259259259;
@@ -857,10 +858,10 @@ const OKAPI_BATTERY_FACTOR = 0.9259259259259259;
 // Unlike the unified BATTERY_TIERS, this is linear: each tier is n physical 5kWh batteries,
 // so the saving-rate bonus is +10% per battery (tier 3 = +30%, not capped at +10% like others).
 const HUAWEI_BATTERY_TIERS = [
-  { n:0, kwh:0,  units:0 },
-  { n:1, kwh:5,  units:1 },
-  { n:2, kwh:10, units:2 },
-  { n:3, kwh:15, units:3 },
+  { n:0, kwh:0,  units:0, boostPct:0 },
+  { n:1, kwh:5,  units:1, boostPct:10 },
+  { n:2, kwh:10, units:2, boostPct:20 },
+  { n:3, kwh:15, units:3, boostPct:30 },
 ];
 function getBatteryTierInfo(brand, n) {
   return (brand === "huawei" ? HUAWEI_BATTERY_TIERS[n] : BATTERY_TIERS[n]) || BATTERY_TIERS[0];
@@ -977,10 +978,12 @@ function computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phase, mete
   const batTier = getBatteryTierInfo(brand, effBat);
   const batUnits = batTier.units;   // Huawei: linear (n batteries) · others: tier 3 counts as 1
   const batKwh = batTier.kwh;
+  const batBoostPct = batTier.boostPct || 0;   // savings-rate bonus — 16kWh is boosted to +30%
 
-  // Saving: capped at the bill (can't save more than you spend). Bonus is per physical
-  // battery unit (batUnits), not per selector tier, so the 16kWh option gives +10%, same as 6kWh.
-  const effPct = (okapi.savePct || 0) + 10 * batUnits;
+  // Saving: capped at the bill (can't save more than you spend). Bonus comes from the tier's
+  // explicit boostPct (16kWh gets +30%, matching the largest-capacity option) rather than
+  // being derived from physical battery-unit count.
+  const effPct = (okapi.savePct || 0) + batBoostPct;
   const save = Math.min(Math.round(a * effPct / 100), Math.round(a));
   const billAfter = Math.max(Math.round(a - save), 0);
 
@@ -1007,7 +1010,7 @@ function computeEstimate(a, brand, pkg, atapPrice, okapi, batteries, phase, mete
   const cardRoi = save > 0 ? (cardInvest / save / 12) : 0;
 
   return {
-    batteries: effBat, batCost, batteryKwh: batKwh, batteryUnits: batUnits, meterCost, save, billAfter, installment, totalPayment, invest, roiYears,
+    batteries: effBat, batCost, batteryKwh: batKwh, batteryUnits: batUnits, batBoostPct, meterCost, save, billAfter, installment, totalPayment, invest, roiYears,
     okapiSystemPrice, okapiBatCost, suria, addWork,
     cardCharge, cardOverflow, cardTotal, cardInvest, cardRoi, cashflow: (save - installment),
     atapPrice, bundledPrice: atapPrice + batCost + meterCost + addWork
@@ -1720,7 +1723,7 @@ function drawEstimatePage(doc, st, opts){
   doc.text(bdLabel+st.pkg.kwp+" kWp  ·  "+st.pkg.panels+" panels  ·  "+(st.phase==="single"?"Single":"Three")+" Phase", M, y); y+=7;
   doc.setFontSize(10); doc.setFont(undefined,"normal"); doc.setTextColor(...muted);
   doc.text(st.batteries
-    ? (st.batteryUnits+(st.batteryUnits>1?" batteries":" battery")+" ("+st.batteryKwh+"kWh · "+RM(st.batCost)+" · saving rate +"+(st.batteryUnits*10)+"%)")
+    ? (st.batteryUnits+(st.batteryUnits>1?" batteries":" battery")+" ("+st.batteryKwh+"kWh · "+RM(st.batCost)+" · saving rate +"+st.batBoostPct+"%)")
     : "No additional battery", M, y); y+=6;
   if(st.note){ doc.setTextColor(...orange); doc.text("Note: "+st.note, M, y, {maxWidth:W-2*M}); y+=8; }
   y+=2;
